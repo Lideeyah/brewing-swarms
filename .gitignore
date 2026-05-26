@@ -1,0 +1,33 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.hypothesis/
+
+# Environment — never commit secrets
+.env
+
+# Runtime data
+agent_registry.json
+receipts.json
+
+# macOS
+.DS_Store
+
+# Bytecode cache
+**/__pycache__/
+*.pyc
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# Frontend build
+frontend/node_modules/
+frontend/dist/

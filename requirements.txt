@@ -1,0 +1,28 @@
+# Smart contract testing
+# titanoboa bundles its own compatible vyper — do not pin vyper separately
+titanoboa>=0.2.8
+
+# EVM + Arc RPC
+web3>=6.0.0
+
+# API server
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.0.0
+
+# AI agents
+anthropic>=0.28.0
+
+# Swarms orchestration
+swarms>=6.0.0
+
+# Environment
+python-dotenv>=1.0.0
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+httpx>=0.27.0
+circle-configurations==9.3.3
+circle-developer-controlled-wallets==9.3.3
+circle-web3-sdk-util==9.3.3

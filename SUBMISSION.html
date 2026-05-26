@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brewing — Canteen Agora Hackathon Submission</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0a0a; color: #ccc;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    padding: 40px 24px; max-width: 860px; margin: 0 auto; line-height: 1.7;
+  }
+  h1 { color: #F59E0B; font-size: 22px; letter-spacing: 0.12em; margin-bottom: 6px; }
+  h2 { color: #888; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+       margin: 36px 0 14px; border-bottom: 1px solid #1a1a1a; padding-bottom: 8px; }
+  h3 { color: #ccc; font-size: 14px; margin: 20px 0 8px; }
+  p  { color: #888; font-size: 13px; margin-bottom: 12px; }
+  a  { color: #F59E0B; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .tagline { color: #555; font-size: 13px; margin-bottom: 32px; }
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 99px;
+    font-size: 10px; letter-spacing: 0.1em; margin-right: 6px; margin-bottom: 6px;
+  }
+  .badge-gold   { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); color: #F59E0B; }
+  .badge-green  { background: rgba(16,185,129,0.10); border: 1px solid rgba(16,185,129,0.25); color: #10B981; }
+  .badge-gray   { background: rgba(255,255,255,0.04); border: 1px solid #1f1f1f; color: #555; }
+  .card {
+    background: #111; border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px; padding: 20px 24px; margin-bottom: 16px;
+  }
+  .metrics { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .metric  { background: #111; border: 1px solid rgba(255,255,255,0.06);
+             border-radius: 8px; padding: 14px 18px; flex: 1; min-width: 120px; }
+  .metric-val   { font-size: 26px; font-weight: 700; color: #F59E0B; }
+  .metric-val.green { color: #10B981; }
+  .metric-val.red   { color: #EF4444; }
+  .metric-label { font-size: 10px; color: #444; letter-spacing: 0.1em; text-transform: uppercase;
+                  margin-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th    { color: #333; font-size: 10px; letter-spacing: 0.08em; font-weight: 400;
+          padding: 6px 10px; text-align: left; border-bottom: 1px solid #1a1a1a; }
+  td    { padding: 8px 10px; border-bottom: 1px solid #111; color: #666; }
+  td.hi { color: #F59E0B; }
+  td.gr { color: #10B981; }
+  td.rd { color: #EF4444; }
+  code  { background: #0d0d0d; border: 1px solid #1a1a1a; border-radius: 4px;
+          padding: 2px 6px; font-size: 11px; color: #888; }
+  pre   { background: #0d0d0d; border: 1px solid #1a1a1a; border-radius: 8px;
+          padding: 16px 18px; font-size: 11px; color: #666; overflow-x: auto;
+          margin-bottom: 12px; line-height: 1.6; }
+  .flow { display: flex; align-items: center; gap: 0; flex-wrap: wrap; margin: 12px 0; }
+  .step { background: #111; border: 1px solid #1f1f1f; border-radius: 6px;
+          padding: 8px 14px; font-size: 11px; color: #888; }
+  .arrow { color: #333; padding: 0 8px; font-size: 14px; }
+  .section-intro { font-size: 12px; color: #555; margin-bottom: 16px; }
+  .copy-btn {
+    float: right; background: transparent; border: 1px solid #222;
+    color: #444; padding: 3px 10px; font-size: 10px; border-radius: 4px;
+    cursor: pointer; font-family: inherit; margin-top: -2px;
+  }
+  .copy-btn:hover { border-color: #F59E0B; color: #F59E0B; }
+  .timestamp { color: #2a2a2a; font-size: 10px; margin-top: 40px; }
+  .demo-script-line { display: flex; gap: 12px; margin-bottom: 8px; }
+  .demo-time { color: #333; font-size: 11px; min-width: 72px; }
+  .demo-text { color: #666; font-size: 12px; line-height: 1.6; }
+  .demo-action { color: #F59E0B; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h1>BREWING</h1>
+<p class="tagline">B2B agent settlement on Arc L1 — autonomous AI agents that hire, pay, and slash each other in native USDC.</p>
+
+<div>
+  <span class="badge badge-gold">Canteen Agora Hackathon</span>
+  <span class="badge badge-gold">Agents Track</span>
+  <span class="badge badge-green">Arc Testnet Live</span>
+  <span class="badge badge-gray">22/22 Tests Passing</span>
+  <span class="badge badge-gray">Vyper 0.4.0</span>
+  <span class="badge badge-gray">Claude claude-opus-4-5</span>
+</div>
+
+<!-- ── PROJECT DESCRIPTION ──────────────────────────────────────────────── -->
+<h2>Project Description</h2>
+
+<div class="card">
+  <h3>The Problem</h3>
+  <p>AI agents are getting capable enough to hire other agents for specialized sub-tasks — but there's no trust layer for agent-to-agent payments. An employer agent has no way to guarantee a worker agent actually delivers before paying, and a worker agent has no guarantee the employer won't ghost after the work is done. Human payment rails (Stripe, bank transfers) require identity and don't work at $0.10 per task.</p>
+
+  <h3>The Solution</h3>
+  <p>Brewing is a trustless escrow protocol for AI agent economies. An employer agent posts a job and locks USDC in a smart contract. A worker agent (Claude) completes the task autonomously. When the employer approves, USDC is released instantly. If the worker misses the SLA deadline, the contract slashes the job and refunds the employer — all without any human in the loop.</p>
+
+  <h3>Why Arc</h3>
+  <p>Arc L1 is Circle's EVM chain where USDC is the native gas token — like ETH on Ethereum, but stable. An agent pays for a job with the same asset it earns from jobs. No wrapping, no bridging, no ERC20 approve transactions. A $0.10 task costs ~$0.01 in fees with ~400ms finality. This makes per-task micropayments economically viable in a way that's impossible on chains with volatile gas tokens.</p>
+
+  <h3>Technical Highlights</h3>
+  <p>The core contract is <code>AgentEscrow.vy</code> — 147 lines of Vyper 0.4.0 using <code>msg.value</code>/<code>send()</code> for native USDC. State is always updated before transfers (no reentrancy vector). A FastAPI backend wraps the Arc RPC with async rate limiting. Claude claude-opus-4-5 runs in an autonomous loop: it receives job specs, completes research/analysis/strategy tasks, and the employer settles via smart contract. 22 titanoboa tests cover the full lifecycle in 0.38s.</p>
+
+  <h3>What's Next</h3>
+  <p>IPFS-linked job specs (already in the contract as <code>ipfs_spec_hash</code>), multi-agent task graphs where agents decompose and delegate sub-tasks, and on-chain reputation scores derived from SLA breach history. The contract is ready for mainnet with the same gas-token economics.</p>
+</div>
+
+<!-- ── LIVE METRICS ──────────────────────────────────────────────────────── -->
+<h2>Live On-Chain Stats</h2>
+
+<p class="section-intro">All transactions verifiable on Arc testnet explorer. No mocked data.</p>
+
+<div class="metrics">
+  <div class="metric">
+    <div class="metric-label">Total Jobs</div>
+    <div class="metric-val">10</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Completed</div>
+    <div class="metric-val green">6</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Slashed</div>
+    <div class="metric-val red">4</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">USDC Settled</div>
+    <div class="metric-val">$0.60</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">USDC Slashed</div>
+    <div class="metric-val red">$0.35</div>
+  </div>
+</div>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Task</th><th>USDC</th><th>Status</th><th>Create TX</th><th>Settle TX</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>#7</td><td>research</td><td class="hi">$0.10</td>
+        <td class="gr">✅ Completed</td>
+        <td><a href="https://testnet.arcscan.app/tx/0xc910eb0b683e7abf1536d40df95c4b05fad3fef5204b0ce618f8b786c6ee85ba">0xc910…</a></td>
+        <td><a href="https://testnet.arcscan.app/tx/0x63734ffc64a74d0653f3de5488ed1e8167c6ba2721db718b82c69ed057c496a6">0x6373…</a></td>
+      </tr>
+      <tr>
+        <td>#8</td><td>analysis</td><td class="hi">$0.10</td>
+        <td class="gr">✅ Completed</td>
+        <td><a href="https://testnet.arcscan.app/tx/0x0436aae001d64011614ab8d7670bc7616e41a5e4cf55fa6e01aeee462baae60d">0x0436…</a></td>
+        <td><a href="https://testnet.arcscan.app/tx/0xf6ebafc808c964e556cbeafed378483483e70f8dbe4fa7a38d58838f6b759c01">0xf6eb…</a></td>
+      </tr>
+      <tr>
+        <td>#9</td><td>strategy</td><td class="hi">$0.10</td>
+        <td class="gr">✅ Completed</td>
+        <td><a href="https://testnet.arcscan.app/tx/0xbedd40dcf8f111aa07bf8bdfa636609e11a84b78c7bf008d41e1a306ca553314">0xbedd…</a></td>
+        <td><a href="https://testnet.arcscan.app/tx/0xf63db19c6520373709def83a6e6e36a6c2c07720f4b62e1b992ee6b262da8efb">0xf63d…</a></td>
+      </tr>
+      <tr>
+        <td>#10</td><td>adversarial</td><td class="hi">$0.05</td>
+        <td class="rd">🔴 Slashed</td>
+        <td><a href="https://testnet.arcscan.app/tx/0x328f71732680742d7b7585a848466284b52f95b3356a48a15eab3e18adc3ec6b">0x328f…</a></td>
+        <td><a href="https://testnet.arcscan.app/tx/0xa60ca8f37ef5bff3a5abfe3b52cdb9b0d65bbb3b5c3ee6d8042ea47095747a54">0xa60c…</a></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ── CONTRACT ─────────────────────────────────────────────────────────── -->
+<h2>Smart Contract</h2>
+
+<div class="card">
+  <p style="margin-bottom:14px;">
+    <strong style="color:#ccc;">Address:</strong>
+    <a href="https://testnet.arcscan.app/address/0x584164ce429991C30B5c83D5774d0870A77F5A22">
+      0x584164ce429991C30B5c83D5774d0870A77F5A22
+    </a>
+    &nbsp;·&nbsp; Arc Testnet · Chain 5042002 · 2,314 bytes
+  </p>
+  <p>
+    <strong style="color:#ccc;">Deploy TX:</strong>
+    <a href="https://testnet.arcscan.app/tx/0x549d8e52bdfa3ec203f275c9969663ee72690a0cab1a1c8dd8bb560fecbcbd85">
+      0x549d8e52…
+    </a>
+    &nbsp;·&nbsp; Block 43,817,808 · Gas 574,691
+  </p>
+</div>
+
+<!-- ── FLOW ─────────────────────────────────────────────────────────────── -->
+<h2>Agent Flow</h2>
+
+<div class="flow">
+  <div class="step">Employer Agent</div>
+  <div class="arrow">→</div>
+  <div class="step">create_job(USDC)</div>
+  <div class="arrow">→</div>
+  <div class="step">Escrow locks funds</div>
+  <div class="arrow">→</div>
+  <div class="step">Claude picks up task</div>
+  <div class="arrow">→</div>
+  <div class="step">AI runs</div>
+  <div class="arrow">→</div>
+  <div class="step">complete_job()</div>
+  <div class="arrow">→</div>
+  <div class="step">Worker paid ~400ms</div>
+</div>
+
+<div class="flow" style="margin-top:8px;">
+  <div class="step" style="border-color:#2a1a1a; color:#555;">SLA expires</div>
+  <div class="arrow">→</div>
+  <div class="step" style="border-color:#2a1a1a; color:#555;">slash_job()</div>
+  <div class="arrow">→</div>
+  <div class="step" style="border-color:#2a1a1a; color:#555;">Employer refunded</div>
+</div>
+
+<!-- ── DEMO VIDEO SCRIPT ────────────────────────────────────────────────── -->
+<h2>Demo Video Script (2:30)</h2>
+
+<div class="card">
+  <div class="demo-script-line">
+    <div class="demo-time">0:00–0:15</div>
+    <div>
+      <div class="demo-action">HOOK — no intro, open with the problem</div>
+      <div class="demo-text">"AI agents are starting to hire each other. But there's no trust layer — how does an employer agent know a worker agent will actually deliver? And how does a worker know they'll get paid? This is that trust layer."</div>
+    </div>
+  </div>
+
+  <div class="demo-script-line">
+    <div class="demo-time">0:15–0:30</div>
+    <div>
+      <div class="demo-action">SHOW the Arc dashboard at localhost:5173/arc</div>
+      <div class="demo-text">"This is the Brewing dashboard — reading live from Arc testnet. You can see 10 jobs already settled on-chain: $0.60 USDC paid out to worker agents, $0.35 slashed back to employers who didn't get their deliverables."</div>
+    </div>
+  </div>
+
+  <div class="demo-script-line">
+    <div class="demo-time">0:30–0:50</div>
+    <div>
+      <div class="demo-action">CLICK "run agent demo" button</div>
+      <div class="demo-text">"Let me run a live demo. I'm triggering the employer agent now — it's going to post two jobs to the escrow contract and lock USDC on Arc testnet."</div>
+    </div>
+  </div>
+
+  <div class="demo-script-line">
+    <div class="demo-time">0:50–1:30</div>
+    <div>
+      <div class="demo-action">WATCH log stream — narrate as it runs</div>
+      <div class="demo-text">"The USDC just locked in the contract — that first line confirms the on-chain TX. Now Claude is running as the worker agent — it's researching why Arc's stablecoin-native gas model is better for AI agent payments. Here's the output... and now the employer is calling complete_job — USDC released to the worker in about 400 milliseconds."</div>
+    </div>
+  </div>
+
+  <div class="demo-script-line">
+    <div class="demo-time">1:30–1:50</div>
+    <div>
+      <div class="demo-action">SWITCH to Arc Explorer — show TX confirmation</div>
+      <div class="demo-text">"Here's the transaction on Arc Explorer. You can see the USDC transfer — from the escrow contract to the worker's wallet. This is real testnet settlement, not a simulation."</div>
+    </div>
+  </div>
+
+  <div class="demo-script-line">
+    <div class="demo-time">1:50–2:10</div>
+    <div>
+      <div class="demo-action">RUN terminal: python3 -m backend.agent slash</div>
+      <div class="demo-text">"Now the adversarial path. I'm posting a job with a 1-second SLA — the worker is going to miss it. Watch: three seconds pass, I call slash_job, and the USDC is returned to the employer. The worker gets nothing. No human arbitration — the contract enforces the SLA."</div>
+    </div>
+  </div>
+
+  <div class="demo-script-line">
+    <div class="demo-time">2:10–2:25</div>
+    <div>
+      <div class="demo-action">SHOW code: AgentEscrow.vy slash_job, 8 lines</div>
+      <div class="demo-text">"The contract is 147 lines of Vyper. The slash logic is 8 lines — state updated before the transfer so there's no reentrancy vector. USDC flows as msg.value, no ERC20 approve needed. Arc makes this possible."</div>
+    </div>
+  </div>
+
+  <div class="demo-script-line">
+    <div class="demo-time">2:25–2:30</div>
+    <div>
+      <div class="demo-action">SHOW test output: 22 passed in 0.38s</div>
+      <div class="demo-text">"22 tests, 0.38 seconds. Star the repo, try the demo. Thanks."</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SETUP ────────────────────────────────────────────────────────────── -->
+<h2>Judge Setup (5 minutes)</h2>
+
+<div class="card">
+<pre>
+# 1. Clone
+git clone &lt;repo&gt; &amp;&amp; cd arc
+
+# 2. Install (Python 3.11 required)
+python3.11 -m venv .venv &amp;&amp; source .venv/bin/activate
+pip install -r requirements.txt
+
+# 3. Configure (use our live contract — no deploy needed)
+cp .env.example .env
+# Set ARC_RPC_URL, ARC_PRIVATE_KEY, ANTHROPIC_API_KEY
+# ESCROW_CONTRACT_ADDRESS=0x584164ce429991C30B5c83D5774d0870A77F5A22  ← already live
+
+# 4. Run tests
+pytest tests/ -v   # 22 passed in 0.38s
+
+# 5. Run agent demo
+python3 -m backend.agent
+
+# 6. Start API + dashboard
+uvicorn backend.main:app --reload --port 8000 &amp;
+cd app &amp;&amp; npm install &amp;&amp; npm run dev
+# Open http://localhost:5173/arc
+</pre>
+</div>
+
+<!-- ── LINKS ─────────────────────────────────────────────────────────────── -->
+<h2>Links</h2>
+
+<div class="card">
+  <table>
+    <tr>
+      <td style="color:#555; width:140px;">Contract</td>
+      <td><a href="https://testnet.arcscan.app/address/0x584164ce429991C30B5c83D5774d0870A77F5A22">testnet.arcscan.app/address/0x584164…</a></td>
+    </tr>
+    <tr>
+      <td style="color:#555;">Explorer</td>
+      <td><a href="https://testnet.arcscan.app">testnet.arcscan.app</a></td>
+    </tr>
+    <tr>
+      <td style="color:#555;">GitHub</td>
+      <td><a href="https://github.com/Lideeyah/brewing-agora-agents">github.com/Lideeyah/brewing-agora-agents</a></td>
+    </tr>
+    <tr>
+      <td style="color:#555;">Demo Video</td>
+      <td><a href="#">[add YouTube URL after recording]</a></td>
+    </tr>
+    <tr>
+      <td style="color:#555;">Live Dashboard</td>
+      <td>localhost:5173/arc (run locally — Arc testnet)</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ── TECH STACK ──────────────────────────────────────────────────────── -->
+<h2>Stack</h2>
+
+<div class="card">
+  <table>
+    <tr><td style="color:#555;">Smart Contract</td><td>Vyper 0.4.0 — AgentEscrow.vy (147 lines)</td></tr>
+    <tr><td style="color:#555;">Chain</td><td>Arc Testnet · EVM · Chain ID 5042002 · Native USDC</td></tr>
+    <tr><td style="color:#555;">Tests</td><td>titanoboa 0.2.8 — 22 tests, 0.38s, no devnet needed</td></tr>
+    <tr><td style="color:#555;">Backend</td><td>FastAPI + web3.py — async Arc RPC + rate limiter</td></tr>
+    <tr><td style="color:#555;">Agent</td><td>Claude claude-opus-4-5 — autonomous task loop</td></tr>
+    <tr><td style="color:#555;">Frontend</td><td>React + Vite — dark terminal aesthetic, live Arc reads</td></tr>
+  </table>
+</div>
+
+<p class="timestamp">Generated: May 24, 2026 · Brewing × Canteen Agora Agents Hackathon</p>
+
+</body>
+</html>
