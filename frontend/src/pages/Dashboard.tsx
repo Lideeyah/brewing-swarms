@@ -1049,7 +1049,7 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
   const [driveFiles, setDriveFiles]   = useState<DriveFilePayload[]>([])
   const [gmailThreads, setGmailThreads] = useState<GmailThreadPayload[]>([])
   const [slackMessages, setSlackMessages] = useState<SlackMessagePayload[]>([])
-  const [governanceMode, setGovernanceMode] = useState<'standard' | 'swarms_demo' | 'slash_demo'>('standard')
+  const [governanceMode, setGovernanceMode] = useState<'standard' | 'swarms_demo' | 'slash_demo'>('swarms_demo')
 
   const launchDemo = async (mode: 'governed' | 'slash') => {
     setDemoLoading(mode); setError('')
@@ -1106,11 +1106,11 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <div className="font-mono text-[9px] text-arc-muted tracking-widest uppercase mb-1">POST A TASK</div>
+        <div className="font-mono text-[9px] text-arc-muted tracking-widest uppercase mb-1">GOVERNED EXECUTION</div>
         <p className="font-mono text-[12px] text-arc-sub">
           {preselectedAgent
-            ? `Hiring ${preselectedAgent}. Your task will be sent directly to this agent's webhook. USDC is locked in escrow and released on delivery.`
-            : 'Describe what you need. Brewing selects the best agents, locks USDC in escrow, and releases payment only when the work is done.'
+            ? `Hiring ${preselectedAgent}. Your task enters the governed pipeline — Director structures the brief, RiskAnalyst executes via Swarms SequentialWorkflow, Auditor validates. USDC releases only on a clean governance verdict.`
+            : 'Describe your task. Director structures the brief, RiskAnalyst executes via Swarms SequentialWorkflow, Auditor runs 7 governance checks. USDC releases only on a clean audit — or slashes back to you on failure.'
           }
         </p>
       </div>
@@ -1262,9 +1262,9 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
           </label>
           <div className="grid grid-cols-3 gap-2">
             {([
-              { id: 'standard',    label: 'Standard',    sub: 'Existing pipeline'       },
-              { id: 'swarms_demo', label: 'Governed',    sub: 'Director + Auditor'      },
-              { id: 'slash_demo',  label: 'Slash Demo',  sub: 'Force governance failure' },
+              { id: 'swarms_demo', label: 'Governed',    sub: 'Swarms SequentialWorkflow' },
+              { id: 'standard',    label: 'Standard',    sub: 'Basic pipeline'             },
+              { id: 'slash_demo',  label: 'Slash Demo',  sub: 'Force governance failure'   },
             ] as const).map(m => (
               <button
                 key={m.id}
@@ -1958,7 +1958,7 @@ function LiveStreamPanel({ taskId, onDone }: { taskId: string; onDone: () => voi
   )
 }
 
-function ActiveJobsTab({ liveTaskId = '', onStreamDone = () => {} }: { liveTaskId?: string; onStreamDone?: () => void }) {
+function ActiveJobsTab({ liveTaskId = '', onStreamDone = () => {}, onGoPost = () => {} }: { liveTaskId?: string; onStreamDone?: () => void; onGoPost?: () => void }) {
   const [tasks,    setTasks]    = useState<TaskRecord[]>([])
   const [loading,  setLoad]     = useState(true)
   const [openIds,  setOpenIds]  = useState<Set<string>>(new Set())
@@ -1996,9 +1996,24 @@ function ActiveJobsTab({ liveTaskId = '', onStreamDone = () => {} }: { liveTaskI
   if (tasks.length === 0) return (
     <div className="flex flex-col gap-3">
       {liveTaskId && <LiveStreamPanel taskId={liveTaskId} onDone={onStreamDone} />}
-      <div className="border border-arc-border rounded-xl p-12 text-center">
-        <div className="font-mono text-xs text-arc-muted">No tasks yet — post your first task</div>
-      </div>
+      {!liveTaskId && (
+        <div className="border border-arc-border rounded-xl p-10 flex flex-col items-center gap-4 text-center">
+          <div className="font-mono text-[10px] text-arc-muted tracking-widest uppercase">No governed tasks yet</div>
+          <p className="font-mono text-[11px] text-arc-sub max-w-sm leading-relaxed">
+            Tasks run through Swarms SequentialWorkflow — Director → RiskAnalyst → Auditor.
+            USDC settles only on a clean governance verdict.
+          </p>
+          <div className="flex gap-2 mt-1">
+            <button
+              type="button"
+              onClick={onGoPost}
+              className="font-mono text-xs px-4 py-2 rounded-lg border border-arc-green/30 text-arc-green hover:border-arc-green hover:bg-arc-green/5 transition-colors"
+            >
+              Post a Task →
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 
@@ -2453,10 +2468,10 @@ export default function Dashboard() {
     setTab(t)
   }
 
-  // Auth guard — redirect to onboard if no session
+  // Auth guard — allow through if user has a demo task running (came from landing page)
   useEffect(() => {
-    if (!employerAddress) navigate('/onboard')
-  }, [employerAddress, navigate])
+    if (!employerAddress && !liveTaskId) navigate('/onboard')
+  }, [employerAddress, liveTaskId, navigate])
 
   const handleHire = (agentName: string) => {
     setPreselectedAgent(agentName)
@@ -2561,7 +2576,7 @@ export default function Dashboard() {
             onTaskPosted={(taskId) => { setLiveTaskId(taskId); setRefreshKey(k => k + 1); goTab('jobs') }}
           />
         )}
-        {tab === 'jobs'        && <ActiveJobsTab key={refreshKey} liveTaskId={liveTaskId} onStreamDone={() => setLiveTaskId('')} />}
+        {tab === 'jobs'        && <ActiveJobsTab key={refreshKey} liveTaskId={liveTaskId} onStreamDone={() => setLiveTaskId('')} onGoPost={() => goTab('post')} />}
         {tab === 'receipts'    && <ReceiptsTab />}
         {tab === 'account'     && <AccountTab onSignOut={() => navigate('/onboard')} />}
       </main>
