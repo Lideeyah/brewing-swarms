@@ -146,7 +146,7 @@ class BrewingArcClient:
         """Build → sign → broadcast. Returns tx hash hex string."""
         tx = fn.build_transaction({
             "from":     self.account.address,
-            "nonce":    self.w3.eth.get_transaction_count(self.account.address),
+            "nonce":    self.w3.eth.get_transaction_count(self.account.address, "pending"),
             "gas":      300_000,
             "gasPrice": self.w3.eth.gas_price,
             "value":    value,
