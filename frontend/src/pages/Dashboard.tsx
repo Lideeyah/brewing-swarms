@@ -2301,7 +2301,12 @@ export default function Dashboard() {
   const navigate  = useNavigate()
   const [tab, setTab]             = useState<TabId>(() => (sessionStorage.getItem('dashboard_tab') as TabId) || 'marketplace')
   const [refreshKey,   setRefreshKey]   = useState(0)
-  const [liveTaskId,   setLiveTaskId]   = useState<string>('')
+  const [liveTaskId,   setLiveTaskId]   = useState<string>(() => {
+    // Pick up a demo task launched from the landing page
+    const demo = sessionStorage.getItem('demo_live_task')
+    if (demo) { sessionStorage.removeItem('demo_live_task'); return demo }
+    return ''
+  })
   const [preselectedAgent, setPreselectedAgent] = useState<string | undefined>()
   const { walletAddr, connect } = useWalletConnect()
 

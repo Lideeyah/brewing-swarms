@@ -226,8 +226,9 @@ function AgentCard({ agent }: { agent: typeof AGENTS[0] }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function LandingPage() {
-  const navigate       = useNavigate()
-  const [stats, setStats] = useState<Stats | null>(null)
+  const navigate            = useNavigate()
+  const [stats, setStats]   = useState<Stats | null>(null)
+  const [demoLoading, setDemoLoading] = useState(false)
 
   useEffect(() => {
     fetch(`${API}/api/analytics`)
@@ -235,6 +236,25 @@ export default function LandingPage() {
       .then(d => setStats(d.metrics))
       .catch(() => null)
   }, [])
+
+  const launchDemo = async () => {
+    if (demoLoading) return
+    setDemoLoading(true)
+    try {
+      const res    = await fetch(`${API}/api/demo/governed`, { method: 'POST' })
+      const data   = await res.json()
+      const taskId = data.task_id ?? ''
+      // Hand off to dashboard: open Jobs tab + pre-load the live task stream
+      sessionStorage.setItem('dashboard_tab', 'jobs')
+      if (taskId) sessionStorage.setItem('demo_live_task', taskId)
+      navigate('/dashboard')
+    } catch {
+      // Backend offline — fall back to dashboard so user can try manually
+      navigate('/dashboard')
+    } finally {
+      setDemoLoading(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
@@ -350,13 +370,13 @@ export default function LandingPage() {
 
               {/* CTA row */}
               <div className="float-in-2 flex gap-3 flex-wrap">
-                <button onClick={() => navigate('/onboard')}
-                  className="font-mono font-semibold text-sm px-7 py-3.5 rounded-xl transition-all"
+                <button onClick={launchDemo} disabled={demoLoading}
+                  className="font-mono font-semibold text-sm px-7 py-3.5 rounded-xl transition-all disabled:opacity-70"
                   style={{ background: '#10b981', color: '#000', boxShadow: '0 0 32px rgba(16,185,129,0.3)' }}
-                  onMouseEnter={e => { (e.target as HTMLElement).style.boxShadow = '0 0 48px rgba(16,185,129,0.5)' }}
+                  onMouseEnter={e => { if (!demoLoading) (e.target as HTMLElement).style.boxShadow = '0 0 48px rgba(16,185,129,0.5)' }}
                   onMouseLeave={e => { (e.target as HTMLElement).style.boxShadow = '0 0 32px rgba(16,185,129,0.3)' }}
                 >
-                  Launch Governed Workflow →
+                  {demoLoading ? '⟳ Launching…' : 'Launch Governed Workflow →'}
                 </button>
                 <button onClick={() => navigate('/dashboard')}
                   className="font-mono text-sm px-7 py-3.5 rounded-xl transition-all"
@@ -536,13 +556,13 @@ export default function LandingPage() {
           <p className="font-mono text-base" style={{ color: '#10b981', fontWeight: 600 }}>
             Brewing governs autonomous execution.
           </p>
-          <button onClick={() => navigate('/onboard')}
-            className="font-mono font-semibold text-sm px-10 py-4 rounded-xl transition-all mt-3"
+          <button onClick={launchDemo} disabled={demoLoading}
+            className="font-mono font-semibold text-sm px-10 py-4 rounded-xl transition-all mt-3 disabled:opacity-70"
             style={{ background: '#10b981', color: '#000', boxShadow: '0 0 48px rgba(16,185,129,0.25)' }}
-            onMouseEnter={e => { (e.target as HTMLElement).style.boxShadow = '0 0 64px rgba(16,185,129,0.45)' }}
+            onMouseEnter={e => { if (!demoLoading) (e.target as HTMLElement).style.boxShadow = '0 0 64px rgba(16,185,129,0.45)' }}
             onMouseLeave={e => { (e.target as HTMLElement).style.boxShadow = '0 0 48px rgba(16,185,129,0.25)' }}
           >
-            Run Governed Demo →
+            {demoLoading ? '⟳ Launching workflow…' : 'Run Governed Demo →'}
           </button>
         </div>
       </div>
