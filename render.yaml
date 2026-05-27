@@ -30,6 +30,6 @@ services:
       - key: FRONTEND_URL
         value: "https://brewing-swarms.vercel.app"
       - key: RENDER_EXTERNAL_URL
-        value: "https://brewing-swarms-api.onrender.com"
+        value: "https://brewing-swarms.onrender.com"
       - key: SLACK_REDIRECT_URI
-        value: "https://brewing-swarms-api.onrender.com/oauth/slack/callback"
+        value: "https://brewing-swarms.onrender.com/oauth/slack/callback"

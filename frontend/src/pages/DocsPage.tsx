@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 
-const API_URL = 'https://brewing-swarms-api.onrender.com'
+const API_URL = 'https://brewing-swarms.onrender.com'
 
 function CodeBlock({ children }: { children: string }) {
   return (
