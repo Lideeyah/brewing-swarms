@@ -420,47 +420,29 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ── Live Stats Bar ──────────────────────────────────────────────────── */}
+      {/* ── Stats Bar ───────────────────────────────────────────────────────── */}
       <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.018)' }}>
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <div className="flex items-center justify-between gap-6">
-
-            {/* 3 stat columns */}
-            <div className="grid grid-cols-3 flex-1 gap-0">
-              {[
-                { v: stats?.totalJobsCompleted ?? '—',                               l: 'Governed Jobs'  },
-                { v: stats ? stats.usdcSettled.toFixed(2) : '—', suffix: 'USDC',    l: 'USDC Settled'   },
-                { v: stats?.activeAgents ?? '—',                                      l: 'Active Agents'  },
-              ].map((s, i) => (
-                <div
-                  key={s.l}
-                  className="flex flex-col gap-1.5"
-                  style={{
-                    paddingLeft:  i > 0 ? '2rem' : undefined,
-                    paddingRight: i < 2 ? '2rem' : undefined,
-                    borderLeft:   i > 0 ? '1px solid rgba(255,255,255,0.07)' : undefined,
-                  }}
-                >
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="font-mono text-[1.75rem] font-bold text-white leading-none">{s.v}</span>
-                    {'suffix' in s && s.v !== '—' && (
-                      <span className="font-mono text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{s.suffix}</span>
-                    )}
-                  </div>
-                  <span className="font-mono text-[10px] tracking-wide" style={{ color: 'rgba(255,255,255,0.45)' }}>{s.l}</span>
+        <div className="max-w-6xl mx-auto px-6 py-10">
+          <div className="flex items-center justify-center gap-0">
+            {[
+              { v: stats?.totalJobsCompleted ?? '—', l: 'Governed Jobs' },
+              { v: stats ? stats.usdcSettled.toFixed(2) : '—', suffix: 'USDC', l: 'USDC Settled' },
+              { v: stats?.activeAgents ?? '—', l: 'Active Agents' },
+            ].map((s, i) => (
+              <div
+                key={s.l}
+                className="flex flex-col items-center gap-2 px-16"
+                style={{ borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.08)' : undefined }}
+              >
+                <div className="flex items-baseline gap-1.5">
+                  <span className="font-mono text-3xl font-bold text-white leading-none">{s.v}</span>
+                  {'suffix' in s && s.v !== '—' && (
+                    <span className="font-mono text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{s.suffix}</span>
+                  )}
                 </div>
-              ))}
-            </div>
-
-            {/* Live indicator */}
-            <div className="flex-shrink-0 flex flex-col items-end gap-1">
-              <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-arc-green pulse-dot" />
-                <span className="font-mono text-[9px] text-arc-green tracking-widest">LIVE</span>
+                <span className="font-mono text-[11px] tracking-wide" style={{ color: 'rgba(255,255,255,0.45)' }}>{s.l}</span>
               </div>
-              <span className="font-mono text-[9px]" style={{ color: 'rgba(255,255,255,0.3)' }}>updates every 30s</span>
-            </div>
-
+            ))}
           </div>
         </div>
       </div>
