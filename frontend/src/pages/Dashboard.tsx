@@ -867,30 +867,20 @@ function RegisterAgentModal({ onClose, onRegistered }: { onClose: () => void; on
 // ── Tab 1: Marketplace ────────────────────────────────────────────────────────
 
 const AGENT_META: Record<string, { specialty: string; pricePerTask: number; description: string }> = {
-  MarketResearchBot: {
-    specialty:    'Market Intelligence & Trading Signals',
+  Director: {
+    specialty:    'Task Structuring & Delegation',
     pricePerTask: 0.033,
-    description:  'Scans markets for trends, price movements, and sector shifts. Best for trading signal generation, competitive positioning, and price discovery.',
+    description:  'Receives raw task prompts and produces a structured brief for downstream agents. Defines scope, required outputs, and governance constraints before any work begins.',
   },
-  SentimentBot: {
-    specialty:    'News & Social Sentiment Analysis',
-    pricePerTask: 0.033,
-    description:  'Processes news feeds and social signals to measure market mood. Identifies bullish/bearish indicators and narrative shifts in real time.',
+  RiskAnalyst: {
+    specialty:    'Risk Analysis & Structured Reporting',
+    pricePerTask: 0.067,
+    description:  'Executes deep risk analysis on the structured brief from Director. Produces a scored JSON report covering risk factors, probability estimates, and mitigation strategies.',
   },
-  ArbitrageBot: {
-    specialty:    'Cross-Market Price Discrepancy Detection',
-    pricePerTask: 0.035,
-    description:  'Detects price spreads and arbitrage windows across venues. Surfaces execution-ready signals with risk-adjusted spread analysis.',
-  },
-  PortfolioBot: {
-    specialty:    'Portfolio Analysis & Rebalancing',
-    pricePerTask: 0.034,
-    description:  'Analyses portfolio composition, runs rebalancing scenarios, and delivers asset-allocation recommendations weighted by risk tolerance.',
-  },
-  PredictionBot: {
-    specialty:    'Event Research & Probability Scoring',
-    pricePerTask: 0.036,
-    description:  'Models upcoming events, scores probabilities, and maps scenario outcomes. Built for forward-looking risk assessment and forecasting.',
+  Auditor: {
+    specialty:    'Governance Validation & Audit',
+    pricePerTask: 0.010,
+    description:  'Runs 7 governance checks against every agent output before settlement. If any check fails, escrow slashes. If all pass, USDC releases to the worker.',
   },
 }
 
@@ -1013,14 +1003,14 @@ function MarketplaceTab({ onHire }: { onHire: (agentName: string) => void }) {
 
       {/* Pipeline note */}
       <div className="border border-arc-border/50 rounded-xl p-5 bg-arc-surface/50 flex flex-col gap-2">
-        <div className="font-mono text-[10px] text-arc-muted tracking-widest uppercase">HOW TASKS WORK</div>
+        <div className="font-mono text-[10px] text-arc-muted tracking-widest uppercase">HOW GOVERNED TASKS WORK</div>
         <p className="font-mono text-[12px] text-arc-sub leading-relaxed">
-          When you post a task, a Planner breaks it into 3 sub-tasks and routes each to the best specialist agent.
-          All three run in parallel. Each has its own escrow. The synthesizer combines all outputs into one final response.
-          You pay only if all three deliver.
+          Every task is escrowed before execution begins. Director structures the brief, RiskAnalyst executes via
+          Swarms SequentialWorkflow, then the Auditor validates 7 governance checks. USDC settles only on a clean
+          audit — if validation fails, escrow slashes and funds return to you.
         </p>
         <div className="flex items-center gap-2 mt-2 flex-wrap">
-          {['Planner', '→ MarketResearchBot', '→ SentimentBot', '→ PortfolioBot', '→ Synthesizer', '→ You'].map(s => (
+          {['Escrow', '→ Director', '→ RiskAnalyst', '→ Auditor (7 checks)', '→ Settlement'].map(s => (
             <span key={s} className="font-mono text-[10px] text-arc-sub border border-arc-border rounded px-2 py-1">{s}</span>
           ))}
         </div>
@@ -1065,7 +1055,7 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
 
   const placeholder = preselectedAgent
     ? `Describe your task for ${preselectedAgent}…`
-    : 'e.g. Research the top 5 competitors in the DeFi lending space and summarise their key differentiators…'
+    : 'e.g. Analyse the risk profile of a DeFi protocol launching on Arc — cover smart contract exposure, liquidity risk, and regulatory surface…'
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1304,7 +1294,7 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
         )}
         {submitting && governanceMode === 'standard' && (
           <p className="font-mono text-[10px] text-arc-muted">
-            Planner → MarketResearchBot → SentimentBot → PortfolioBot → Synthesizer
+            Director → RiskAnalyst → Auditor → Settlement
           </p>
         )}
       </form>
@@ -1318,7 +1308,7 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
               <div className="flex items-center gap-2">
                 <span className="text-arc-green text-sm">✓</span>
                 <span className="font-mono text-xs font-semibold text-arc-green">
-                  3-agent pipeline complete · {result.budget_usdc.toFixed(3)} USDC settled
+                  Governed pipeline complete · {result.budget_usdc.toFixed(3)} USDC settled
                 </span>
               </div>
               <StatusBadge status={result.status} />
@@ -1744,10 +1734,8 @@ function LiveStreamPanel({ taskId, onDone }: { taskId: string; onDone: () => voi
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [events, current])
 
   const AGENT_COLOR: Record<string, string> = {
-    Planner: 'text-arc-amber', Synthesizer: 'text-purple-400',
     Director: 'text-arc-amber', RiskAnalyst: 'text-blue-400',
     Auditor: 'text-purple-400', Settlement: 'text-arc-green',
-    MarketResearchBot: 'text-arc-green', SentimentBot: 'text-blue-400', PortfolioBot: 'text-emerald-400',
   }
 
   // Execution feed: all non-governance, non-internal events
