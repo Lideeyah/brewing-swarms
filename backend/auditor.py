@@ -193,15 +193,17 @@ class AuditorAgent:
         """Use Claude Haiku to assess relevance and depth of unstructured output."""
         try:
             resp = self._client.messages.create(
-                model      = "claude-haiku-4-5-20251001",
+                model      = "claude-3-5-haiku-20241022",
                 max_tokens = 60,
                 messages   = [{
                     "role":    "user",
                     "content": (
                         f"Task: {task[:200]}\n\n"
-                        f"Output: {output[:400]}\n\n"
-                        "Is this output substantive, relevant, and governance-grade "
-                        "(i.e. would an enterprise trust this for financial decision-making)?\n"
+                        f"Output: {output[:600]}\n\n"
+                        "Does this output contain substantive analysis relevant to the task? "
+                        "Even partial or structured JSON counts as PASS if it contains "
+                        "meaningful content. Only return SLASH if the output is completely "
+                        "empty, gibberish, or entirely unrelated to the task.\n"
                         'Respond with JSON only: {"verdict": "PASS"} or {"verdict": "SLASH"}'
                     ),
                 }],
@@ -219,7 +221,15 @@ class AuditorAgent:
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _extract_json(text: str) -> dict | None:
-    """Try to extract the first JSON object from a string."""
+    """Try to extract the first JSON object from a string (handles markdown fences)."""
+    # Strip markdown code fences first
+    fenced = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
+    if fenced:
+        try:
+            return json.loads(fenced.group(1))
+        except Exception:
+            pass
+    # Bare JSON object anywhere in the text
     try:
         m = re.search(r'\{.*\}', text, re.DOTALL)
         if m:

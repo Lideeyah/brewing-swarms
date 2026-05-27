@@ -517,7 +517,6 @@ async def _run_governed_pipeline(task, req, employer_addr: str):
             task.completed_at = int(time.time())
             task_store.update(task)
             await _emit(tid, "done",
-                        task_id  = tid,
                         slashed  = True,
                         gov_log  = gov_log.to_dict(),
                         summary  = gov_log.summary())
@@ -571,7 +570,6 @@ async def _run_governed_pipeline(task, req, employer_addr: str):
         task.completed_at = int(time.time())
         task_store.update(task)
         await _emit(tid, "done",
-                    task_id   = tid,
                     slashed   = False,
                     settle_tx = settle_tx,
                     gov_log   = gov_log.to_dict(),
@@ -735,7 +733,7 @@ async def _run_pipeline(task, req, employer_addr: str):
             task.status       = "completed"
             task.completed_at = int(time.time())
             task_store.update(task)
-            await _emit(tid, "done", task_id=tid)
+            await _emit(tid, "done")
             return
 
         # ── Multi-agent pipeline (no specific agent selected) ─────────────────
@@ -900,7 +898,7 @@ async def _run_pipeline(task, req, employer_addr: str):
         task.status       = "completed"
         task.completed_at = int(time.time())
         task_store.update(task)
-        await _emit(tid, "done", task_id=tid)
+        await _emit(tid, "done")
 
     except Exception as e:
         task.status = "refunded"
