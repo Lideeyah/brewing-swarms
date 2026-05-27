@@ -916,41 +916,81 @@ function MarketplaceTab({ onHire }: { onHire: (agentName: string) => void }) {
     </div>
   )
 
+  const PIPELINE_STEPS = [
+    { label: 'Escrow',      color: 'text-blue-400',    border: 'border-blue-400/30'    },
+    { label: 'Director',    color: 'text-arc-amber',   border: 'border-arc-amber/30'   },
+    { label: 'RiskAnalyst', color: 'text-blue-400',    border: 'border-blue-400/30'    },
+    { label: 'Auditor',     color: 'text-purple-400',  border: 'border-purple-400/30'  },
+    { label: 'Settlement',  color: 'text-arc-green',   border: 'border-arc-green/30'   },
+  ]
+
+  const AGENT_STEP: Record<string, string> = {
+    Director: '01 — Brief Structuring',
+    RiskAnalyst: '02 — Swarms Execution',
+    Auditor: '03 — Governance Validation',
+  }
+
   return (
     <>
     {showModal && <RegisterAgentModal onClose={() => setModal(false)} onRegistered={handleRegistered} />}
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
+
+      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="font-mono text-[9px] text-arc-muted tracking-widest uppercase mb-1">AGENT MARKETPLACE</div>
-          <p className="font-mono text-[12px] text-arc-sub">
-            Hire specialized AI agents. Payment is locked in escrow before work begins — released only when it's done.
+          <div className="font-mono text-[9px] text-arc-muted tracking-widest uppercase mb-1">GOVERNED PIPELINE</div>
+          <p className="font-mono text-[12px] text-arc-sub max-w-xl">
+            Every task runs as a Swarms SequentialWorkflow. USDC is locked in escrow at the start —
+            released only when the Auditor clears all 7 governance checks. Fail any check: funds return to you.
           </p>
         </div>
         <button
           onClick={() => setModal(true)}
-          className="flex-shrink-0 font-mono text-xs border border-arc-amber/40 text-arc-amber px-4 py-2 rounded-lg hover:bg-arc-amber/5 transition-colors"
+          className="flex-shrink-0 font-mono text-[11px] border border-arc-border text-arc-muted px-3 py-1.5 rounded-lg hover:border-arc-green/40 hover:text-arc-sub transition-colors"
         >
-          + List Your Agent
+          + Register Agent
         </button>
       </div>
 
+      {/* Pipeline flow */}
+      <div className="flex items-center gap-1 flex-wrap">
+        {PIPELINE_STEPS.map((s, i) => (
+          <div key={s.label} className="flex items-center gap-1 flex-shrink-0">
+            <span className={`font-mono text-[10px] px-2.5 py-1 rounded border ${s.color} ${s.border} bg-white/[0.02]`}>
+              {s.label}
+            </span>
+            {i < PIPELINE_STEPS.length - 1 && (
+              <span className="font-mono text-[10px] text-arc-border/50">→</span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Agent cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {agents.map(agent => {
           const meta = AGENT_META[agent.name] ?? {
-            specialty:    agent.capabilities[0] ?? 'General',
+            specialty:    'General Purpose',
             pricePerTask: 0.033,
-            description:  `Specialized in: ${agent.capabilities.join(', ')}.`,
+            description:  agent.capabilities.length
+              ? `Handles: ${agent.capabilities.slice(0, 3).join(', ')}.`
+              : 'General purpose agent.',
           }
-          const addrShort = `${agent.payment_addr.slice(0, 6)}…${agent.payment_addr.slice(-4)}`
+          const step = AGENT_STEP[agent.name]
 
           return (
-            <div key={agent.agent_id} className="border border-arc-border rounded-xl bg-arc-surface flex flex-col overflow-hidden hover:border-arc-green/40 transition-colors">
+            <div
+              key={agent.agent_id}
+              className="border border-arc-border rounded-xl bg-arc-surface flex flex-col overflow-hidden hover:border-arc-green/30 transition-colors"
+            >
+              <div className="px-5 pt-5 pb-5 flex flex-col gap-4 flex-1">
 
-              {/* Card header */}
-              <div className="px-5 pt-5 pb-4 flex flex-col gap-3 flex-1">
+                {/* Name + badge + status */}
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex flex-col gap-1">
+                    {step && (
+                      <div className="font-mono text-[9px] text-arc-muted tracking-widest">{step}</div>
+                    )}
                     <div className="flex items-center gap-2">
                       <div className="font-mono text-sm font-bold text-white">{agent.name}</div>
                       {GOVERNED_AGENTS.has(agent.name) && (
@@ -970,25 +1010,21 @@ function MarketplaceTab({ onHire }: { onHire: (agentName: string) => void }) {
                   </span>
                 </div>
 
+                {/* Description */}
                 <p className="font-mono text-[11px] text-arc-sub leading-relaxed">{meta.description}</p>
-
-                {/* Capabilities */}
-                <div className="flex flex-wrap gap-1.5">
-                  {agent.capabilities.slice(0, 4).map(cap => (
-                    <span key={cap} className="font-mono text-[9px] text-arc-muted border border-arc-border/60 rounded px-1.5 py-0.5">{cap}</span>
-                  ))}
-                </div>
 
                 {/* Stats */}
                 <div className="flex flex-col gap-2 mt-auto pt-3 border-t border-arc-border">
                   <div className="flex items-center justify-between font-mono text-[10px]">
-                    <span className="text-arc-muted">Reputation</span>
+                    <span className="text-arc-muted">Governance reputation</span>
+                    <span className={`font-semibold ${agent.reputation >= 8 ? 'text-arc-green' : agent.reputation >= 5 ? 'text-arc-amber' : 'text-red-400'}`}>
+                      {agent.reputation.toFixed(1)} / 10
+                    </span>
                   </div>
                   <ReputationBar score={agent.reputation} />
-
                   <div className="grid grid-cols-2 gap-2 mt-1">
                     <div>
-                      <div className="font-mono text-[9px] text-arc-muted uppercase tracking-wide">Jobs done</div>
+                      <div className="font-mono text-[9px] text-arc-muted uppercase tracking-wide">Governed jobs</div>
                       <div className="font-mono text-sm font-bold text-white mt-0.5">{agent.jobs_completed}</div>
                     </div>
                     <div>
@@ -996,41 +1032,26 @@ function MarketplaceTab({ onHire }: { onHire: (agentName: string) => void }) {
                       <div className="font-mono text-sm font-bold text-arc-amber mt-0.5">{meta.pricePerTask.toFixed(3)} USDC</div>
                     </div>
                   </div>
-
-                  <div className="font-mono text-[9px] text-arc-muted mt-1">
-                    Wallet: <span className="text-arc-sub">{addrShort}</span>
-                  </div>
                 </div>
-              </div>
-
-              {/* CTA */}
-              <div className="border-t border-arc-border p-4">
-                <button
-                  onClick={() => onHire(agent.name)}
-                  className="w-full bg-arc-green text-black font-mono font-semibold text-xs py-2.5 rounded-lg hover:bg-emerald-400 transition-colors"
-                >
-                  Hire {agent.name} →
-                </button>
               </div>
             </div>
           )
         })}
       </div>
 
-      {/* Pipeline note */}
-      <div className="border border-arc-border/50 rounded-xl p-5 bg-arc-surface/50 flex flex-col gap-2">
-        <div className="font-mono text-[10px] text-arc-muted tracking-widest uppercase">HOW GOVERNED TASKS WORK</div>
-        <p className="font-mono text-[12px] text-arc-sub leading-relaxed">
-          Every task is escrowed before execution begins. Director structures the brief, RiskAnalyst executes via
-          Swarms SequentialWorkflow, then the Auditor validates 7 governance checks. USDC settles only on a clean
-          audit — if validation fails, escrow slashes and funds return to you.
-        </p>
-        <div className="flex items-center gap-2 mt-2 flex-wrap">
-          {['Escrow', '→ Director', '→ RiskAnalyst', '→ Auditor (7 checks)', '→ Settlement'].map(s => (
-            <span key={s} className="font-mono text-[10px] text-arc-sub border border-arc-border rounded px-2 py-1">{s}</span>
-          ))}
-        </div>
+      {/* Launch CTA */}
+      <div className="flex items-center gap-4">
+        <button
+          onClick={() => onHire('')}
+          className="bg-arc-green text-black font-mono font-semibold text-sm px-6 py-3 rounded-lg hover:bg-emerald-400 transition-colors"
+        >
+          Launch Governed Workflow →
+        </button>
+        <span className="font-mono text-[11px] text-arc-muted">
+          Director → RiskAnalyst → Auditor · 0.10 USDC escrowed
+        </span>
       </div>
+
     </div>
     </>
   )
@@ -1181,107 +1202,21 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
           />
         </div>
 
-        {/* Integrations */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <label className="font-mono text-[10px] text-arc-muted tracking-widest uppercase">
-              Data Sources <span className="text-arc-muted normal-case tracking-normal">(optional — agents will read from connected sources)</span>
-            </label>
-          </div>
-
-          {/* Google Drive */}
-          <div className="flex flex-col gap-1">
-            <span className="font-mono text-[10px] text-arc-muted">Google Drive</span>
-            <DriveFilePicker onFilesChange={setDriveFiles} />
-          </div>
-
-          {/* Gmail */}
-          <div className="flex flex-col gap-1">
-            <span className="font-mono text-[10px] text-arc-muted">Gmail</span>
-            <GmailPicker onThreadsChange={setGmailThreads} />
-          </div>
-
-          {/* Slack */}
-          <div className="flex flex-col gap-1">
-            <span className="font-mono text-[10px] text-arc-muted">Slack</span>
-            <SlackConnect onMessagesChange={setSlackMessages} />
-          </div>
-
-        </div>
-
-        {/* Budget + Deadline */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="font-mono text-[10px] text-arc-muted tracking-widest uppercase">Budget (USDC)</label>
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={budget}
-              onChange={e => setBudget(e.target.value)}
-              className="bg-arc-surface border border-arc-border rounded-lg px-4 py-3 font-mono text-sm text-white focus:outline-none focus:border-arc-green transition-colors"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="font-mono text-[10px] text-arc-muted tracking-widest uppercase">Deadline</label>
-            <select
-              value={deadline}
-              onChange={e => setDeadline(e.target.value)}
-              className="bg-arc-surface border border-arc-border rounded-lg px-4 py-3 font-mono text-sm text-white focus:outline-none focus:border-arc-green transition-colors"
-            >
-              <option value="1">1 hour</option>
-              <option value="6">6 hours</option>
-              <option value="24">24 hours</option>
-              <option value="72">3 days</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Escrow preview */}
-        <div className="border border-arc-border/50 rounded-lg px-4 py-3 bg-arc-surface/50 flex items-center justify-between">
-          <div className="flex flex-col gap-0.5">
-            <span className="font-mono text-[10px] text-arc-muted">Escrow to lock</span>
-            <span className="font-mono text-lg font-bold text-arc-amber">{lockedUsdc} USDC</span>
-          </div>
-          <div className="font-mono text-[10px] text-arc-muted text-right">
-            <div>Split across 3 agents</div>
-            <div className="text-arc-green">Released only on delivery</div>
-          </div>
-        </div>
-
         {error && (
           <div className="border border-red-500/20 rounded-lg px-4 py-3 bg-red-500/5">
             <span className="font-mono text-xs text-red-400">{error}</span>
           </div>
         )}
 
-        {/* Governance mode selector */}
-        <div className="flex flex-col gap-2">
-          <label className="font-mono text-[10px] text-arc-muted tracking-widest uppercase">
-            Execution Mode
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            {([
-              { id: 'swarms_demo', label: 'Governed',    sub: 'Swarms SequentialWorkflow' },
-              { id: 'standard',    label: 'Standard',    sub: 'Basic pipeline'             },
-              { id: 'slash_demo',  label: 'Slash Demo',  sub: 'Force governance failure'   },
-            ] as const).map(m => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => setGovernanceMode(m.id)}
-                className={`flex flex-col gap-0.5 px-3 py-2.5 rounded-lg border font-mono transition-colors text-left ${
-                  governanceMode === m.id
-                    ? m.id === 'slash_demo'
-                      ? 'border-red-500/50 bg-red-500/10 text-red-400'
-                      : 'border-arc-green/50 bg-arc-green/10 text-arc-green'
-                    : 'border-arc-border text-arc-muted hover:border-arc-green/30'
-                }`}
-              >
-                <span className="text-xs font-semibold">{m.label}</span>
-                <span className="text-[10px] opacity-70">{m.sub}</span>
-              </button>
-            ))}
+        {/* Escrow preview */}
+        <div className="border border-arc-border/50 rounded-lg px-4 py-3 bg-arc-surface/50 flex items-center justify-between">
+          <div className="flex flex-col gap-0.5">
+            <span className="font-mono text-[10px] text-arc-muted">Escrow locked on submit</span>
+            <span className="font-mono text-lg font-bold text-arc-amber">{lockedUsdc} USDC</span>
+          </div>
+          <div className="font-mono text-[10px] text-arc-muted text-right leading-relaxed">
+            <div className="text-arc-green">Released only on clean audit</div>
+            <div>or slashed back to you on failure</div>
           </div>
         </div>
 
@@ -1291,26 +1226,17 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
           className={`font-mono font-semibold text-sm px-6 py-3 rounded-lg transition-all ${
             submitting || !desc.trim()
               ? 'bg-arc-surface border border-arc-border text-arc-muted cursor-not-allowed'
-              : governanceMode === 'slash_demo'
-                ? 'bg-red-500 text-white hover:bg-red-400'
-                : 'bg-arc-green text-black hover:bg-emerald-400'
+              : 'bg-arc-green text-black hover:bg-emerald-400'
           }`}
         >
           {submitting
-            ? '⟳ Governed execution in progress…'
-            : governanceMode === 'slash_demo'
-              ? `▶ Post Task · Slash Demo · Lock ${lockedUsdc} USDC`
-              : `▶ Post Task · Lock ${lockedUsdc} USDC`
+            ? '⟳ Running governed pipeline…'
+            : `▶ Launch Governed Workflow · Lock ${lockedUsdc} USDC`
           }
         </button>
-        {submitting && governanceMode !== 'standard' && (
+        {submitting && (
           <p className="font-mono text-[10px] text-purple-400/70">
-            Director → RiskAnalyst → Auditor → Settlement (Arc)
-          </p>
-        )}
-        {submitting && governanceMode === 'standard' && (
-          <p className="font-mono text-[10px] text-arc-muted">
-            Director → RiskAnalyst → Auditor → Settlement
+            Director → RiskAnalyst (Swarms) → Auditor → Settlement on Arc
           </p>
         )}
       </form>
@@ -2474,16 +2400,16 @@ export default function Dashboard() {
   }, [employerAddress, liveTaskId, navigate])
 
   const handleHire = (agentName: string) => {
-    setPreselectedAgent(agentName)
+    setPreselectedAgent(agentName || undefined)
     goTab('post')
   }
 
   const TABS: { id: TabId; label: string; sub: string }[] = [
-    { id: 'marketplace', label: 'Agents',      sub: 'Browse · governed · audited' },
-    { id: 'post',        label: 'Post a Task', sub: 'New task · escrow · settle' },
-    { id: 'jobs',        label: 'Active Jobs', sub: 'Status · results · timers' },
-    { id: 'receipts',    label: 'Receipts',    sub: 'History · proof · download' },
-    { id: 'account',     label: 'Account',     sub: 'Profile · spend · wallets' },
+    { id: 'marketplace', label: 'Pipeline',     sub: 'Agents · governed · Swarms' },
+    { id: 'post',        label: 'Run Workflow', sub: 'Escrow · execute · settle'  },
+    { id: 'jobs',        label: 'Active Jobs',  sub: 'Stream · results · audit'   },
+    { id: 'receipts',    label: 'Receipts',     sub: 'History · proof · on-chain' },
+    { id: 'account',     label: 'Account',      sub: 'Profile · wallet · spend'   },
   ]
 
   return (
