@@ -16,7 +16,9 @@ Usage:
     result = await orch.run(task_description, budget_usdc, emit_fn)
 """
 import asyncio
+import json as _json
 import os
+import re as _re
 import time
 from typing import Callable, Awaitable
 
@@ -149,12 +151,18 @@ class BrewingSwarmOrchestrator:
             lambda: self.workflow.run(task_description),
         )
 
-        # Primary: extract last assistant turn from each agent's short_memory.
-        # Fallback: use workflow_result (str with output_type="str", dict otherwise).
+        # Extract clean output from each agent's memory.
+        # workflow_result (str) is the final agent's raw output — use as authoritative
+        # fallback if memory extraction fails or returns conversation noise.
         director_output = _extract_agent_output(self.director)
         analyst_output  = _extract_agent_output(self.risk_analyst)
-        if not analyst_output:
-            analyst_output = workflow_result if isinstance(workflow_result, str) else str(workflow_result)
+
+        # If memory extraction returned noise or nothing, use workflow_result
+        if not analyst_output or _is_conversation_dump(analyst_output):
+            if isinstance(workflow_result, str) and workflow_result.strip():
+                analyst_output = _clean_output(workflow_result.strip())
+            else:
+                analyst_output = str(workflow_result)
 
         await _emit("governance", agent="RiskAnalyst",
                     message="Structured analysis complete",
@@ -175,45 +183,181 @@ class BrewingSwarmOrchestrator:
                 pass
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Output extraction helpers ─────────────────────────────────────────────────
+
+def _clean_output(text: str) -> str:
+    """Strip Swarms system-awareness annotations from agent output."""
+    lines = text.splitlines()
+    cleaned = [
+        l for l in lines
+        if not l.strip().startswith("system: Sequential")
+        and "Sequential awareness" not in l
+    ]
+    return "\n".join(cleaned).strip()
+
+
+def _is_conversation_dump(text: str) -> bool:
+    """
+    Return True if text looks like a raw Swarms conversation dump
+    rather than a clean agent response.
+    """
+    noise_markers = (
+        "User:",
+        "user:",
+        "system: Sequential",
+        "Agent behind:",
+        "Agent ahead:",
+        "Human:",
+    )
+    return any(m in text for m in noise_markers)
+
+
+def _extract_json_blocks(text: str) -> list[str]:
+    """
+    Return all top-level JSON objects found in text, in order.
+    Uses a depth-counter approach to handle nested objects robustly.
+    """
+    blocks: list[str] = []
+    depth = 0
+    start = -1
+    for i, ch in enumerate(text):
+        if ch == '{':
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0 and start >= 0:
+                candidate = text[start:i + 1]
+                try:
+                    _json.loads(candidate)
+                    blocks.append(candidate)
+                except Exception:
+                    pass
+                start = -1
+    return blocks
+
+
+def _extract_from_history(history: str, agent_name: str) -> str:
+    """
+    Parse a Swarms conversation history string and return the last
+    meaningful output from the named agent.
+
+    Strategy:
+      1. Last JSON object that contains governance-relevant fields
+      2. Text after the last "<AgentName>:" block
+      3. Text after the last "Assistant:" block
+    """
+    # Strategy 1 — preferred: last structured JSON with analysis fields
+    governance_keys = {"risk_score", "recommendation", "reasoning", "task_brief"}
+    all_blocks = _extract_json_blocks(history)
+    governed = [b for b in all_blocks if governance_keys & set(_json.loads(b).keys())]
+    if governed:
+        return governed[-1]
+
+    # Strategy 2 — last agent-name section
+    pat = _re.compile(
+        rf'\b{_re.escape(agent_name)}\s*:\s*\n?(.*)',
+        _re.DOTALL | _re.IGNORECASE
+    )
+    matches = list(pat.finditer(history))
+    if matches:
+        content = matches[-1].group(1).strip()
+        content = _clean_output(content)
+        # Trim at next role marker
+        cutoff = _re.search(r'\n(?:User|system|Human|Assistant)\s*:', content)
+        if cutoff:
+            content = content[:cutoff.start()].strip()
+        if len(content) > 20:
+            return content
+
+    # Strategy 3 — last Assistant: section
+    matches = list(_re.finditer(r'\bAssistant\s*:\s*\n?(.*)', history, _re.DOTALL | _re.IGNORECASE))
+    if matches:
+        content = matches[-1].group(1).strip()
+        content = _clean_output(content)
+        cutoff = _re.search(r'\n(?:User|system|Human)\s*:', content)
+        if cutoff:
+            content = content[:cutoff.start()].strip()
+        if len(content) > 20:
+            return content
+
+    return ""
+
 
 def _extract_agent_output(agent: Agent) -> str:
     """
-    Extract the last assistant turn from a Swarms Agent's short_memory.
+    Extract the last clean assistant response from a Swarms Agent's memory.
 
-    Preference order:
-      1. short_memory.get_final_message_content()  — just the last message body
-      2. short_memory.get_last_message_as_string()  — last message with role prefix
-      3. last 2000 chars of return_history_as_string() — full conversation fallback
+    Tries (in order):
+      1. short_memory.messages list — direct access to last assistant dict
+      2. get_final_message_content() — Swarms API
+      3. get_last_message_as_string() — Swarms API with role prefix stripped
+      4. return_history_as_string() — full history, parsed via _extract_from_history
     """
     try:
         mem = getattr(agent, "short_memory", None)
         if mem is None:
             return ""
 
-        # Option 1: cleanest — content of the final message only
+        # Option 1: direct messages list access (most reliable)
+        messages = getattr(mem, "messages", None)
+        if isinstance(messages, list) and messages:
+            for msg in reversed(messages):
+                if not isinstance(msg, dict):
+                    continue
+                role = msg.get("role", "")
+                if role not in ("assistant", agent.agent_name, agent.agent_name.lower()):
+                    continue
+                content = msg.get("content", "")
+                if isinstance(content, str) and content.strip():
+                    cleaned = _clean_output(content.strip())
+                    if cleaned and not _is_conversation_dump(cleaned):
+                        return cleaned
+                elif isinstance(content, list):
+                    for block in reversed(content):
+                        if isinstance(block, dict) and block.get("type") == "text":
+                            text = block.get("text", "")
+                            if text.strip():
+                                cleaned = _clean_output(text.strip())
+                                if cleaned and not _is_conversation_dump(cleaned):
+                                    return cleaned
+
+        # Option 2: Swarms get_final_message_content()
         if hasattr(mem, "get_final_message_content"):
-            out = mem.get_final_message_content()
-            if out and isinstance(out, str) and out.strip():
-                return out.strip()
+            try:
+                out = mem.get_final_message_content()
+                if out and isinstance(out, str) and out.strip():
+                    cleaned = _clean_output(out.strip())
+                    if cleaned and not _is_conversation_dump(cleaned):
+                        return cleaned
+            except Exception:
+                pass
 
-        # Option 2: last message with role tag stripped out
+        # Option 3: Swarms get_last_message_as_string()
         if hasattr(mem, "get_last_message_as_string"):
-            out = mem.get_last_message_as_string()
-            if out and isinstance(out, str) and out.strip():
-                # Strip a leading "Assistant: " prefix if present
-                out = out.strip()
-                for prefix in ("Assistant:", "assistant:", "ASSISTANT:"):
-                    if out.startswith(prefix):
-                        out = out[len(prefix):].strip()
-                        break
-                return out
+            try:
+                out = mem.get_last_message_as_string()
+                if out and isinstance(out, str) and out.strip():
+                    out = out.strip()
+                    for prefix in ("Assistant:", "assistant:", "ASSISTANT:"):
+                        if out.startswith(prefix):
+                            out = out[len(prefix):].strip()
+                            break
+                    cleaned = _clean_output(out)
+                    if cleaned and not _is_conversation_dump(cleaned):
+                        return cleaned
+            except Exception:
+                pass
 
-        # Option 3: full history tail
+        # Option 4: parse full history string
         if hasattr(mem, "return_history_as_string"):
-            history = mem.return_history_as_string()
-            if history and isinstance(history, str):
-                return history[-2000:]
+            try:
+                history = mem.return_history_as_string()
+                if history and isinstance(history, str):
+                    return _extract_from_history(history, agent.agent_name)
+            except Exception:
+                pass
 
     except Exception:
         pass

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Document, Paragraph, TextRun, HeadingLevel, Packer } from 'docx'
-import DriveFilePicker, { type DriveFilePayload } from '../components/DriveFilePicker'
 import GmailPicker, { type GmailThreadPayload } from '../components/GmailPicker'
 
 const API      = import.meta.env.VITE_ARC_API_URL ?? 'http://localhost:8000'
@@ -468,8 +467,7 @@ async function blobToBase64(blob: Blob): Promise<string> {
 // ── ResultActions ─────────────────────────────────────────────────────────────
 
 function ResultActions({ content, taskId }: { content: string; taskId: string }) {
-  const [driveStatus, setDriveStatus] = useState<'idle' | 'saving' | 'saved' | 'reconnect'>('idle')
-  const [emailOpen,   setEmailOpen]   = useState(false)
+  const [emailOpen, setEmailOpen] = useState(false)
 
   // Parse gmail_send token from OAuth redirect
   useEffect(() => {
@@ -488,60 +486,9 @@ function ResultActions({ content, taskId }: { content: string; taskId: string })
     }
   }, [])
 
-  // Clear stale readonly-only token so user reconnects with drive.file scope
-  useEffect(() => {
-    const token = localStorage.getItem('drive_token')
-    const scopes = localStorage.getItem('drive_scopes') ?? ''
-    if (token && !scopes.includes('drive.file')) {
-      localStorage.removeItem('drive_token')
-      localStorage.setItem('drive_scopes', '')
-    }
-  }, [])
-
   const downloadDocx = async () => {
     const blob = await buildDocx(`Brewing Analysis — ${taskId}`, '', toPlainText(content))
     triggerDocxDownload(blob, `brewing-analysis-${taskId}.docx`)
-  }
-
-  const saveToDrive = async () => {
-    const token = localStorage.getItem('drive_token')
-    if (!token) { setDriveStatus('reconnect'); return }
-    setDriveStatus('saving')
-    try {
-      const filename = `Brewing Analysis — ${new Date().toLocaleDateString('en-GB')}.txt`
-      const boundary = 'brewing_boundary_' + Math.random().toString(36).slice(2)
-      const body = [
-        `--${boundary}`,
-        'Content-Type: application/json; charset=UTF-8',
-        '',
-        JSON.stringify({ name: filename, mimeType: 'text/plain' }),
-        `--${boundary}`,
-        'Content-Type: text/plain; charset=UTF-8',
-        '',
-        toPlainText(content),
-        `--${boundary}--`,
-      ].join('\r\n')
-
-      const res = await fetch(
-        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
-        {
-          method:  'POST',
-          headers: {
-            Authorization:  `Bearer ${token}`,
-            'Content-Type': `multipart/related; boundary="${boundary}"`,
-          },
-          body,
-        }
-      )
-      if (res.ok) {
-        setDriveStatus('saved')
-      } else {
-        if (res.status === 401 || res.status === 403) localStorage.removeItem('drive_token')
-        setDriveStatus('reconnect')
-      }
-    } catch {
-      setDriveStatus('reconnect')
-    }
   }
 
   return (
@@ -554,22 +501,6 @@ function ResultActions({ content, taskId }: { content: string; taskId: string })
           className="flex items-center gap-1.5 font-mono text-[10px] text-arc-sub border border-arc-border rounded-lg px-3 py-1.5 hover:border-arc-green hover:text-arc-green transition-colors"
         >
           ↓ Download .docx
-        </button>
-        <button
-          onClick={saveToDrive}
-          disabled={driveStatus === 'saving'}
-          title={driveStatus === 'reconnect' ? 'Reconnect Google Drive on the Post Task tab to enable saving' : ''}
-          className={`flex items-center gap-1.5 font-mono text-[10px] border rounded-lg px-3 py-1.5 transition-colors ${
-            driveStatus === 'saved'     ? 'text-arc-green border-arc-green/30 bg-arc-green/5' :
-            driveStatus === 'reconnect' ? 'text-arc-amber border-arc-amber/30' :
-            driveStatus === 'saving'    ? 'text-arc-muted border-arc-border cursor-wait' :
-            'text-arc-sub border-arc-border hover:border-arc-green hover:text-arc-green'
-          }`}
-        >
-          {driveStatus === 'saving'    ? '⟳ Saving…'          :
-           driveStatus === 'saved'     ? '✓ Saved to Drive'    :
-           driveStatus === 'reconnect' ? '↺ Reconnect Drive'   :
-                                         '↑ Save to Drive'}
         </button>
         <button
           onClick={() => setEmailOpen(true)}
@@ -1067,7 +998,6 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
   const [demoLoading, setDemoLoading] = useState<'governed' | 'slash' | null>(null)
   const [result, setResult]           = useState<TaskRecord | null>(null)
   const [error, setError]             = useState('')
-  const [driveFiles, setDriveFiles]   = useState<DriveFilePayload[]>([])
   const [gmailThreads, setGmailThreads] = useState<GmailThreadPayload[]>([])
   const [slackMessages, setSlackMessages] = useState<SlackMessagePayload[]>([])
   const [governanceMode, setGovernanceMode] = useState<'standard' | 'swarms_demo' | 'slash_demo'>('swarms_demo')
@@ -1109,7 +1039,6 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
           employer_address: employerAddress,
           employer_name:    employerName,
           selected_agent:   preselectedAgent ?? '',
-          drive_files:      driveFiles,
           gmail_threads:    gmailThreads,
           slack_messages:   slackMessages,
           governance_mode:  governanceMode,
@@ -1521,11 +1450,12 @@ function CompletedGovernancePanel({ taskId }: { taskId: string }) {
   )
   if (!log || log.event_count === 0) return null
 
+  const W = 'rgba(255,255,255,0.45)'  // neutral stage colour
   const EV_COLOR: Record<string, string> = {
-    escrowed:           '#60a5fa',
-    delegated:          '#f59e0b',
-    executing:          '#60a5fa',
-    auditing:           '#a855f7',
+    escrowed:           W,
+    delegated:          W,
+    executing:          W,
+    auditing:           W,
     audited:            log.was_slashed ? '#ef4444' : '#10b981',
     settled:            '#10b981',
     slashed:            '#ef4444',
