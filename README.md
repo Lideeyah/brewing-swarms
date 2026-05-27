@@ -133,26 +133,5 @@ Arc Testnet — Chain ID 5042002 — RPC `https://rpc-arc-testnet.circle.com`
 
 ---
 
-## Project Structure
-
-```
-brewing-swarms/
-├── backend/
-│   ├── main.py              FastAPI — routes, SSE, governed pipeline
-│   ├── swarms_workflow.py   BrewingSwarmOrchestrator (Swarms wrapper)
-│   ├── auditor.py           AuditorAgent — 7-check governance validation
-│   ├── governance.py        GovernanceLog — append-only event store
-│   ├── brewing_sdk.py       Arc L1 escrow client
-│   └── registry.py          Agent registry + reputation scoring
-├── frontend/
-│   └── src/pages/Dashboard.tsx
-├── contracts/
-│   └── AgentEscrow.vy
-├── SYSTEM_LOGS.md           Governance execution traces
-└── DEMO_SCRIPT.md           Demo video script
-```
-
----
-
 *Built for the Swarms Hackathon · May 2026*
 *Arc Testnet · Circle Developer-Controlled Wallets · Swarms SequentialWorkflow*
