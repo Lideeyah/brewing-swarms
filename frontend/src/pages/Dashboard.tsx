@@ -1441,15 +1441,19 @@ const WORKFLOW_STEPS = [
 ]
 
 function WorkflowStepIndicator({ events, slashed }: { events: StreamEvent[]; slashed: boolean }) {
-  const stagesSeen = new Set(events.map(e => e.stage ?? e.type))
-  const isDone     = events.some(e => e.type === 'done')
+  const stagesSeen   = new Set(events.map(e => e.stage ?? e.type))
+  const isDone       = events.some(e => e.type === 'done')
+  // findLastIndex polyfill — avoids ES2023 lib requirement
+  const lastReachedIdx = WORKFLOW_STEPS.reduce(
+    (acc, s, i) => stagesSeen.has(s.key) ? i : acc, -1
+  )
 
   return (
     <div className="flex items-center gap-0 overflow-x-auto pb-1">
       {WORKFLOW_STEPS.map((step, i) => {
-        const reached  = stagesSeen.has(step.key)
-        const isSlash  = slashed && step.key === 'settled'
-        const isCurrent= reached && !isDone && i === WORKFLOW_STEPS.findLastIndex(s => stagesSeen.has(s.key))
+        const reached   = stagesSeen.has(step.key)
+        const isSlash   = slashed && step.key === 'settled'
+        const isCurrent = reached && !isDone && i === lastReachedIdx
         return (
           <div key={step.key} className="flex items-center flex-shrink-0">
             <div className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border transition-all ${
@@ -1461,7 +1465,7 @@ function WorkflowStepIndicator({ events, slashed }: { events: StreamEvent[]; sla
                 isSlash  ? 'text-red-400' :
                 reached  ? step.color : 'text-arc-muted'
               }`}>
-                {isSlash ? '✗' : reached ? (isDone || i < WORKFLOW_STEPS.findLastIndex(s => stagesSeen.has(s.key))) ? '✓' : '⟳' : '○'}
+                {isSlash ? '✗' : reached ? (isDone || i < lastReachedIdx) ? '✓' : '⟳' : '○'}
               </span>
               <span className={`text-[9px] whitespace-nowrap ${
                 isSlash ? 'text-red-400/80' : reached ? step.color : 'text-arc-muted'
