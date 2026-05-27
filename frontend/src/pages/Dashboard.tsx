@@ -106,6 +106,7 @@ interface TaskRecord {
   agent_name?:      string | null
   create_tx?:       string | null
   settle_tx?:       string | null
+  director_output?: string | null
   receipt_id?:      string | null
 }
 
@@ -965,6 +966,19 @@ function MarketplaceTab({ onHire }: { onHire: (agentName: string) => void }) {
                   </div>
                 </div>
               </div>
+              {/* Per-agent Hire button */}
+              <button
+                onClick={() => onHire(agent.name)}
+                className={`w-full font-mono text-[11px] font-semibold border-t py-2.5 transition-colors ${
+                  agent.active
+                    ? 'border-arc-green/20 text-arc-muted hover:text-arc-green hover:bg-arc-green/5'
+                    : 'border-arc-border text-arc-muted/40 cursor-not-allowed'
+                }`}
+                disabled={!agent.active}
+                title={agent.active ? `Post a task to ${agent.name}` : `${agent.name} is offline`}
+              >
+                {agent.active ? `Hire ${agent.name} →` : `${agent.name} Offline`}
+              </button>
             </div>
           )
         })}
@@ -2190,48 +2204,110 @@ function ReceiptsTab() {
               <div className="border-t border-arc-border px-5 py-4 flex flex-col gap-4">
                 <p className="font-mono text-[11px] text-arc-sub leading-relaxed">{task.description}</p>
 
-                {/* Pipeline / agent info */}
-                {(task.subtasks ?? []).length === 0 ? (
-                  // Governed task — show Swarms pipeline
-                  <div className="flex items-center gap-2 flex-wrap font-mono text-[10px]">
-                    <span className="text-arc-green border border-arc-green/30 rounded px-1.5 py-0.5">◈ GOVERNED</span>
-                    <span className="text-white/40">Director → RiskAnalyst → Auditor → Settlement</span>
-                    <span className="text-white/30">· Swarms SequentialWorkflow</span>
-                  </div>
-                ) : (
-                  <div className="font-mono text-[10px] text-arc-muted">
-                    {(task.subtasks ?? []).filter(s => s.status === 'completed').length}/{(task.subtasks ?? []).length} agents settled on-chain
-                  </div>
-                )}
+                {/* ── Governed task layout ── */}
+                {(task.subtasks ?? []).length === 0 ? (() => {
+                  const isRefunded = task.status === 'refunded'
+                  return (
+                    <>
+                      {/* Pipeline badge + on-chain TX links */}
+                      <div className="flex items-center flex-wrap gap-x-4 gap-y-2 font-mono text-[10px]">
+                        <span className="text-arc-green border border-arc-green/30 rounded px-1.5 py-0.5">◈ GOVERNED</span>
+                        <span className="text-white/40">Director → RiskAnalyst → Auditor → Settlement</span>
+                        {/* On-chain verification buttons */}
+                        {task.create_tx && (
+                          <a
+                            href={`${EXPLORER}/tx/${task.create_tx}`}
+                            target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1 text-arc-green border border-arc-green/30 rounded px-2 py-0.5 hover:bg-arc-green/10 transition-colors"
+                          >
+                            Escrow TX ↗
+                          </a>
+                        )}
+                        {task.settle_tx && !isRefunded && (
+                          <a
+                            href={`${EXPLORER}/tx/${task.settle_tx}`}
+                            target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1 text-arc-green border border-arc-green/30 rounded px-2 py-0.5 hover:bg-arc-green/10 transition-colors"
+                          >
+                            Settlement TX ↗
+                          </a>
+                        )}
+                        <button
+                          onClick={() => download(task)}
+                          className="text-arc-sub border border-arc-border rounded px-2 py-0.5 hover:border-arc-green hover:text-arc-green transition-colors ml-auto"
+                        >
+                          ↓ Receipt
+                        </button>
+                      </div>
 
-                {/* On-chain proof + download */}
-                <div className="flex flex-wrap items-center gap-3 font-mono text-[10px]">
-                  {firstSettleTx && (
-                    <a href={`${EXPLORER}/tx/${firstSettleTx}`} target="_blank" rel="noreferrer"
-                      className="text-arc-green hover:underline">
-                      Settlement TX ↗
-                    </a>
-                  )}
-                  {(task.subtasks ?? []).length === 0 && (
-                    // Governed task — fetch governance audit and show TX
-                    <CompletedGovernancePanel taskId={task.task_id} />
-                  )}
-                  <button
-                    onClick={() => download(task)}
-                    className="font-mono text-[10px] text-arc-sub border border-arc-border rounded px-2 py-1 hover:border-arc-green hover:text-arc-green transition-colors"
-                  >
-                    ↓ Download Receipt
-                  </button>
-                </div>
+                      {/* Agent panels: Director brief */}
+                      {task.director_output && (
+                        <div className="border border-arc-border rounded-xl overflow-hidden">
+                          <div className="flex items-center gap-2 px-4 py-2.5 bg-black/30 border-b border-arc-border">
+                            <span className="font-mono text-[9px] text-arc-muted tracking-widest uppercase">01 — Director</span>
+                            <span className="font-mono text-[9px] text-white/30">Brief structuring · task decomposition</span>
+                          </div>
+                          <div className="px-4 py-3">
+                            <MarkdownResult content={task.director_output} />
+                          </div>
+                        </div>
+                      )}
 
-                {/* Analysis output */}
-                {task.result && (
-                  <div className="border border-arc-border rounded-lg p-4 bg-black/40">
-                    <MarkdownResult content={task.result} />
-                    <div className="mt-3 pt-3 border-t border-arc-border/50">
-                      <ResultActions content={task.result} taskId={task.task_id} />
+                      {/* Agent panels: RiskAnalyst output */}
+                      {task.result && (
+                        <div className="border border-arc-border rounded-xl overflow-hidden">
+                          <div className="flex items-center gap-2 px-4 py-2.5 bg-black/30 border-b border-arc-border">
+                            <span className="font-mono text-[9px] text-arc-muted tracking-widest uppercase">02 — RiskAnalyst</span>
+                            <span className="font-mono text-[9px] text-white/30">Swarms SequentialWorkflow · structured analysis</span>
+                          </div>
+                          <div className="px-4 py-3">
+                            <MarkdownResult content={task.result} />
+                          </div>
+                          <div className="px-4 pb-3 border-t border-arc-border/40 pt-3">
+                            <ResultActions content={task.result} taskId={task.task_id} />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Agent panels: Auditor governance trail */}
+                      <div className="border border-arc-border rounded-xl overflow-hidden">
+                        <div className="flex items-center gap-2 px-4 py-2.5 bg-black/30 border-b border-arc-border">
+                          <span className="font-mono text-[9px] text-arc-muted tracking-widest uppercase">03 — Auditor + Settlement</span>
+                          <span className="font-mono text-[9px] text-white/30">7 governance checks · Arc escrow settlement</span>
+                        </div>
+                        <div className="px-4 py-3">
+                          <CompletedGovernancePanel taskId={task.task_id} />
+                        </div>
+                      </div>
+                    </>
+                  )
+                })() : (
+                  /* ── Multi-agent subtask layout ── */
+                  <>
+                    <div className="font-mono text-[10px] text-arc-muted">
+                      {(task.subtasks ?? []).filter(s => s.status === 'completed').length}/{(task.subtasks ?? []).length} agents settled on-chain
                     </div>
-                  </div>
+                    {firstSettleTx && (
+                      <a href={`${EXPLORER}/tx/${firstSettleTx}`} target="_blank" rel="noreferrer"
+                        className="font-mono text-[10px] text-arc-green hover:underline">
+                        Settlement TX ↗
+                      </a>
+                    )}
+                    {task.result && (
+                      <div className="border border-arc-border rounded-lg p-4 bg-black/40">
+                        <MarkdownResult content={task.result} />
+                        <div className="mt-3 pt-3 border-t border-arc-border/50">
+                          <ResultActions content={task.result} taskId={task.task_id} />
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => download(task)}
+                      className="self-start font-mono text-[10px] text-arc-sub border border-arc-border rounded px-2 py-1 hover:border-arc-green hover:text-arc-green transition-colors"
+                    >
+                      ↓ Download Receipt
+                    </button>
+                  </>
                 )}
               </div>
             )}

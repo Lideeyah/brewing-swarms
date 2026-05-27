@@ -516,8 +516,10 @@ async def _run_governed_pipeline(task, req, employer_addr: str):
                                 f"Slash TX: {slash_tx[:18]}…",
                         tx=slash_tx)
 
-            task.status       = "refunded"
-            task.completed_at = int(time.time())
+            task.status          = "refunded"
+            task.completed_at    = int(time.time())
+            task.create_tx       = create_tx
+            task.director_output = director_output
             task_store.update(task)
             await _emit(tid, "done",
                         slashed  = True,
@@ -572,9 +574,12 @@ async def _run_governed_pipeline(task, req, employer_addr: str):
         except Exception:
             pass
 
-        task.result       = analyst_output
-        task.status       = "completed"
-        task.completed_at = int(time.time())
+        task.result          = analyst_output
+        task.status          = "completed"
+        task.completed_at    = int(time.time())
+        task.create_tx       = create_tx
+        task.settle_tx       = settle_tx
+        task.director_output = director_output
         task_store.update(task)
         await _emit(tid, "done",
                     slashed   = False,

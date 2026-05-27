@@ -28,6 +28,10 @@ class TaskRecord:
     subtasks:         list          = field(default_factory=list)  # list of SubTask dicts
     created_at:       int           = field(default_factory=lambda: int(time.time()))
     completed_at:     Optional[int] = None
+    # Governed workflow fields — populated after settlement
+    create_tx:        Optional[str] = None   # Arc escrow TX hash
+    settle_tx:        Optional[str] = None   # Arc settlement TX hash
+    director_output:  Optional[str] = None   # Director's structured task brief (JSON)
 
 
 class TaskStore:
