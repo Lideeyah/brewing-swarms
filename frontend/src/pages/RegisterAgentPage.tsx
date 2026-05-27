@@ -4,14 +4,16 @@ import { useNavigate } from 'react-router-dom'
 const API = import.meta.env.VITE_ARC_API_URL ?? 'http://localhost:8000'
 
 const ALL_CAPS = [
-  { id: 'research',  label: 'Research' },
-  { id: 'analysis',  label: 'Analysis' },
-  { id: 'writing',   label: 'Writing' },
-  { id: 'data',      label: 'Data' },
-  { id: 'strategy',  label: 'Strategy' },
-  { id: 'coding',    label: 'Coding' },
-  { id: 'legal',     label: 'Legal' },
-  { id: 'finance',   label: 'Finance' },
+  { id: 'risk_analysis',  label: 'Risk Analysis'  },
+  { id: 'governance',     label: 'Governance'      },
+  { id: 'research',       label: 'Research'        },
+  { id: 'analysis',       label: 'Analysis'        },
+  { id: 'autonomous',     label: 'Autonomous'      },
+  { id: 'strategy',       label: 'Strategy'        },
+  { id: 'audit',          label: 'Audit'           },
+  { id: 'data',           label: 'Data'            },
+  { id: 'finance',        label: 'Finance'         },
+  { id: 'coding',         label: 'Coding'          },
 ]
 
 export default function RegisterAgentPage() {
@@ -87,8 +89,8 @@ export default function RegisterAgentPage() {
                 <div className="text-arc-green text-3xl">✓</div>
                 <h1 className="font-mono text-xl font-bold text-white">Agent Listed</h1>
                 <p className="font-mono text-[12px] text-arc-sub leading-relaxed">
-                  <strong className="text-white">{name}</strong> is now live in the Brewing marketplace.
-                  Businesses can hire it immediately.
+                  <strong className="text-white">{name}</strong> is now in Brewing's governed registry.
+                  It will be audited on every workflow execution.
                 </p>
                 <div className="flex gap-3 justify-center mt-2">
                   <button
@@ -110,11 +112,11 @@ export default function RegisterAgentPage() {
             <div className="flex flex-col gap-8">
 
               <div>
-                <div className="font-mono text-[9px] text-arc-muted tracking-widest uppercase mb-2">OPEN AGENT MARKETPLACE</div>
-                <h1 className="text-2xl font-bold mb-2">List Your Agent</h1>
+                <div className="font-mono text-[9px] text-arc-muted tracking-widest uppercase mb-2">GOVERNED AGENT REGISTRY</div>
+                <h1 className="text-2xl font-bold mb-2">Register Your Agent</h1>
                 <p className="font-mono text-[12px] text-arc-sub leading-relaxed">
-                  Any developer can list an agent on Brewing. Businesses hire it. Payment goes directly
-                  to your Arc wallet — locked in escrow, released on delivery.
+                  Register your agent in Brewing's governed execution pool. Every workflow your agent
+                  runs is audited before settlement — USDC releases only on a clean governance verdict.
                 </p>
               </div>
 
@@ -178,11 +180,11 @@ export default function RegisterAgentPage() {
                     onChange={e => setPrice(e.target.value)}
                     className="bg-arc-surface border border-arc-border rounded-lg px-4 py-3 font-mono text-sm text-white focus:outline-none focus:border-arc-green transition-colors"
                   />
-                  <span className="font-mono text-[10px] text-arc-muted">Paid in USDC directly to your Arc wallet on task completion</span>
+                  <span className="font-mono text-[10px] text-arc-muted">Paid in USDC on successful governance audit — not just on task completion</span>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[10px] text-arc-muted tracking-widest uppercase">Arc Wallet Address</label>
+                  <label className="font-mono text-[10px] text-arc-muted tracking-widest uppercase">Settlement Wallet Address</label>
                   <input
                     type="text"
                     value={walletAddr}
@@ -191,7 +193,7 @@ export default function RegisterAgentPage() {
                     required
                     className="bg-arc-surface border border-arc-border rounded-lg px-4 py-3 font-mono text-sm text-white placeholder-arc-muted focus:outline-none focus:border-arc-green transition-colors"
                   />
-                  <span className="font-mono text-[10px] text-arc-muted">USDC payments are sent to this address via AgentEscrow on Arc L1</span>
+                  <span className="font-mono text-[10px] text-arc-muted">USDC settles here via AgentEscrow after the Auditor clears governance checks</span>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -232,13 +234,14 @@ export default function RegisterAgentPage() {
               </form>
 
               <div className="border border-arc-border/50 rounded-xl p-5 bg-arc-surface/50 flex flex-col gap-2">
-                <div className="font-mono text-[10px] text-arc-muted tracking-widest uppercase">How Agent Payment Works</div>
+                <div className="font-mono text-[10px] text-arc-muted tracking-widest uppercase">How Governed Settlement Works</div>
                 <div className="flex flex-col gap-1.5 mt-1">
                   {[
-                    'Business posts a task and locks USDC in escrow',
-                    'Your agent receives the task and delivers results',
-                    'Smart contract releases USDC to your wallet automatically',
-                    'Reputation score grows with each successful delivery',
+                    'Task is escrowed before execution begins',
+                    'Director structures the brief — your agent executes via Swarms workflow',
+                    'Auditor runs 7 governance checks against your output',
+                    'PASS → USDC settles to you · SLASH → funds return to employer',
+                    'On-chain reputation updates after every governed execution',
                   ].map((s, i) => (
                     <div key={i} className="flex items-start gap-2 font-mono text-[11px] text-arc-sub">
                       <span className="text-arc-green flex-shrink-0">→</span>

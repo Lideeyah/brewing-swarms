@@ -176,7 +176,7 @@ export default function OnboardingPage() {
                     <span className="font-mono text-sm font-semibold text-white group-hover:text-arc-green transition-colors">
                       {web3Connecting ? 'Connecting…' : 'Connect with MetaMask'}
                     </span>
-                    <span className="font-mono text-[10px] text-arc-muted">Arc Testnet · instant access</span>
+                    <span className="font-mono text-[10px] text-arc-muted">Instant access to governed workflows</span>
                   </div>
                 </button>
                 <div className="flex items-center gap-3">
@@ -194,7 +194,7 @@ export default function OnboardingPage() {
                 <p className="font-mono text-[12px] text-arc-sub leading-relaxed">
                   {mode === 'signin'
                     ? 'Sign in with your email to access your dashboard and agent history.'
-                    : 'Get a Circle-managed wallet on Arc Testnet and start hiring AI agents.'
+                    : 'Access Brewing\'s governed execution infrastructure and start running autonomous workflows.'
                   }
                 </p>
 
@@ -309,14 +309,14 @@ export default function OnboardingPage() {
                   {mode === 'signin' ? 'SIGNING IN' : 'PROVISIONING WALLET'}
                 </div>
                 <p className="font-mono text-sm text-arc-sub">
-                  {mode === 'signin' ? 'Looking up your account…' : 'Creating your Circle DCW on Arc Testnet…'}
+                  {mode === 'signin' ? 'Looking up your account…' : 'Setting up your governed execution account…'}
                 </p>
               </div>
               {mode === 'create' && (
                 <div className="border border-arc-border rounded-xl bg-arc-surface p-5 w-full text-left flex flex-col gap-2">
                   {[
-                    '✓ Connecting to Circle MPC',
-                    '✓ Generating Arc L1 wallet',
+                    '✓ Provisioning governed account',
+                    '✓ Enabling on-chain settlement',
                     '⟳ Registering on-chain…',
                   ].map((line, i) => (
                     <div
@@ -348,7 +348,7 @@ export default function OnboardingPage() {
 
               <div className="border border-arc-green/20 rounded-xl bg-arc-green/5 p-5 flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
-                  <div className="font-mono text-[9px] text-arc-muted tracking-widest uppercase">Your Arc Wallet</div>
+                  <div className="font-mono text-[9px] text-arc-muted tracking-widest uppercase">Settlement Wallet</div>
                   <div className="font-mono text-xs text-white break-all">{result.address}</div>
                 </div>
                 <div className="flex items-center justify-between border-t border-arc-green/10 pt-3">
@@ -361,7 +361,7 @@ export default function OnboardingPage() {
                 <div className="border border-arc-border rounded-xl bg-arc-surface p-5 flex flex-col gap-3">
                   <div className="font-mono text-[10px] text-arc-muted tracking-widest uppercase">Fund Your Wallet</div>
                   <p className="font-mono text-[11px] text-arc-sub leading-relaxed">
-                    Get 20 free USDC from the Circle testnet faucet to start posting tasks.
+                    Get free testnet USDC to run governed workflows and trigger demo executions.
                   </p>
                   <div className="font-mono text-[10px] text-arc-muted border border-arc-border rounded px-3 py-2 bg-black break-all">
                     {result.address}
@@ -372,7 +372,7 @@ export default function OnboardingPage() {
                     rel="noreferrer"
                     className="border border-arc-border font-mono text-xs px-4 py-2.5 rounded-lg text-arc-sub hover:border-arc-green hover:text-arc-green transition-colors text-center"
                   >
-                    Open Circle Faucet ↗
+                    Get Testnet USDC ↗
                   </a>
                   <a
                     href={`${EXPLORER}/address/${result.address}`}

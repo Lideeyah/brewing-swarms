@@ -2200,7 +2200,7 @@ function AccountTab({ onSignOut }: { onSignOut: () => void }) {
         {/* Circle DCW */}
         <div className="border border-arc-border rounded-xl bg-arc-surface p-5 flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <div className="font-mono text-[9px] text-arc-muted tracking-widest uppercase">Circle Managed Wallet (Arc Testnet)</div>
+            <div className="font-mono text-[9px] text-arc-muted tracking-widest uppercase">Settlement Wallet (Arc Testnet)</div>
             {profile && (
               <span className="font-mono text-sm font-bold text-arc-green">{profile.balance_usdc.toFixed(4)} USDC</span>
             )}
@@ -2329,7 +2329,7 @@ export default function Dashboard() {
   }
 
   const TABS: { id: TabId; label: string; sub: string }[] = [
-    { id: 'marketplace', label: 'Agents',      sub: 'Browse · hire · compare' },
+    { id: 'marketplace', label: 'Agents',      sub: 'Browse · governed · audited' },
     { id: 'post',        label: 'Post a Task', sub: 'New task · escrow · settle' },
     { id: 'jobs',        label: 'Active Jobs', sub: 'Status · results · timers' },
     { id: 'receipts',    label: 'Receipts',    sub: 'History · proof · download' },
