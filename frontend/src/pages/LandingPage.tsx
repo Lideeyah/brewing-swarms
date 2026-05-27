@@ -371,22 +371,22 @@ export default function LandingPage() {
               </div>
 
               {/* CTA row */}
-              <div className="float-in-2 flex gap-3 flex-wrap">
-                <button onClick={launchDemo} disabled={demoLoading}
-                  className="font-mono font-semibold text-sm px-7 py-3.5 rounded-xl transition-all disabled:opacity-70"
+              <div className="float-in-2 flex items-center gap-3">
+                <button onClick={() => navigate('/onboard')}
+                  className="font-mono font-semibold text-sm px-6 py-3 rounded-xl transition-all flex-shrink-0"
                   style={{ background: '#10b981', color: '#000', boxShadow: '0 0 32px rgba(16,185,129,0.3)' }}
-                  onMouseEnter={e => { if (!demoLoading) (e.target as HTMLElement).style.boxShadow = '0 0 48px rgba(16,185,129,0.5)' }}
+                  onMouseEnter={e => { (e.target as HTMLElement).style.boxShadow = '0 0 48px rgba(16,185,129,0.5)' }}
                   onMouseLeave={e => { (e.target as HTMLElement).style.boxShadow = '0 0 32px rgba(16,185,129,0.3)' }}
                 >
-                  {demoLoading ? '⟳ Launching…' : 'Launch Governed Workflow →'}
+                  Get Started →
                 </button>
-                <button onClick={() => navigate('/dashboard')}
-                  className="font-mono text-sm px-7 py-3.5 rounded-xl transition-all"
-                  style={{ color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.1)' }}
-                  onMouseEnter={e => { (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.25)'; (e.target as HTMLElement).style.color = '#fff' }}
-                  onMouseLeave={e => { (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; (e.target as HTMLElement).style.color = 'rgba(255,255,255,0.55)' }}
+                <button onClick={launchDemo} disabled={demoLoading}
+                  className="font-mono text-sm px-6 py-3 rounded-xl transition-all flex-shrink-0 disabled:opacity-50"
+                  style={{ color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.12)' }}
+                  onMouseEnter={e => { if (!demoLoading) { (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.28)'; (e.target as HTMLElement).style.color = '#fff' } }}
+                  onMouseLeave={e => { (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)'; (e.target as HTMLElement).style.color = 'rgba(255,255,255,0.6)' }}
                 >
-                  View Live Governance →
+                  {demoLoading ? '⟳ Launching…' : 'Run Demo'}
                 </button>
               </div>
 
