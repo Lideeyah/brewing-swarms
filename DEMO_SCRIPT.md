@@ -1,112 +1,220 @@
-# Brewing — Demo Video Script
-
-2 minutes. Operational tone. No hype. Show the governance working.
-
----
-
-## 0–15s — The Problem
-
-**Screen:** blank terminal or dark slide
-
-> "AI agents can delegate work to other agents. But when money is involved, there's no enforcement layer. The worker might deliver nothing. The employer might refuse to pay. There's no escrow, no audit, no consequence for failure."
-
-> "Brewing is the infrastructure that changes that."
+# Brewing — Demo Recording Script
+### Swarms Hackathon Submission · Target: 2:30–3:00 min
 
 ---
 
-## 15–40s — What Brewing Is
+## Pre-recording checklist
 
-**Screen:** Brewing dashboard — Post a Task tab
-
-> "Brewing is governed coordination and settlement infrastructure for autonomous systems."
-
-> "Every task goes through four stages: economic lock, structured delegation via Swarms, governance audit, and on-chain settlement."
-
-> "The key primitive is the Auditor — a validation layer that sits between execution and payment. It checks 7 conditions. If any fail, the escrow slashes. If all pass, USDC moves."
-
-Point to the pipeline label on screen:
-> "Director → RiskAnalyst → Auditor → Settlement. That's the chain."
+- [ ] Backend warm (hit `GET /api/agents` once — Render wakes in ~30s if cold)
+- [ ] Browser window: 1440×900, dark mode, no extensions visible
+- [ ] Incognito tab (no cached auth / stale state)
+- [ ] Start on landing page `/`
+- [ ] Silence all notifications, Dock animations, clock widgets
+- [ ] QuickTime → New Screen Recording → crop to browser only
 
 ---
 
-## 40–90s — Governed Demo (PASS path)
+## Scene 1 — Hook (0:00 → 0:18)
 
-**Screen:** Post a Task tab — click "Governed Demo" button
+**Screen:** Landing page at `https://brewing.vercel.app` (or your Vercel URL)
 
-> "Let's run a live governed execution."
+**Voiceover:**
+> "AI agents can coordinate, execute tasks, and generate outputs.
+> The missing layer is accountability.
+> What enforces the rules? What happens when an agent fails?
+> Brewing answers that — with Swarms, economic escrow, and on-chain governance."
 
-Click **▶ Governed Demo**
-
-> "This calls POST /api/demo/governed. It locks USDC in escrow on Arc, then hands the task to the Swarms SequentialWorkflow."
-
-**Screen:** Active Jobs tab — live SSE stream opens
-
-Watch the workflow step indicator advance:
-> "Escrow locked. Director structures the task brief. RiskAnalyst runs the analysis. Now the Auditor validates."
-
-**Screen:** Governance Audit Trail panel — audit event arrives
-
-> "Seven checks. SLA compliance, structured JSON, required fields, risk score range, reasoning depth. All pass."
-
-**Screen:** Audit verdict shows PASS with green checks
-
-> "PASS. USDC released to the worker. Settled on Arc. The agent gets paid because it delivered."
-
-**Screen:** Settlement TX link — click to open ArcScan
+**What to show:**
+- Scroll slowly from the hero headline to the stats bar
+- Let the LIVE GOVERNANCE STREAM panel animate on the right (shows SETTLED / SLASHED events cycling)
+- Pause on the three stats: Governed Jobs · USDC Settled · Active Agents
 
 ---
 
-## 90–120s — Slash Demo (SLASH path)
+## Scene 2 — The Pipeline (0:18 → 0:40)
 
-**Screen:** Back to Post a Task tab — click "✗ Slash Demo"
+**Screen:** Scroll down to the Pipeline section
 
-> "Now the enforcement path."
+**Voiceover:**
+> "Every task runs through five enforced stages.
+>
+> First — Escrow. USDC locks on Arc before any agent touches the task.
+>
+> Second — Director. A Swarms agent structures the objective into a governance-grade brief.
+>
+> Third — Risk Analyst. The second Swarms agent executes the analysis inside
+> a SequentialWorkflow.
+>
+> Fourth — Auditor. Seven governance checks. No partial credit.
+>
+> Fifth — Settlement. USDC releases only on a clean verdict.
+> Fail the audit — USDC slashes back to the employer."
 
-Click **✗ Slash Demo**
-
-> "This is POST /api/demo/slash. Same pipeline, but the Auditor is configured to reject — governance constraint violation."
-
-**Screen:** Live stream — watch Auditor event arrive
-
-**Screen:** Red slash card appears in Governance panel
-
-> "Audit failed. Slash triggered on-chain. USDC returned to the employer. Reputation penalised."
-
-Point to reputation delta:
-> "Nine-point-zero down to eight-point-eight. That history is permanent. Agents that fail governance pay a compounding cost."
-
----
-
-## Final 15s — The Vision
-
-**Screen:** Governance Audit Trail showing full delegation chain
-
-> "Brewing is not an app. It's the trust layer for autonomous systems — the infrastructure that lets agents transact with strangers, at scale, without needing to know or trust each other."
-
-> "Economic enforcement is what makes agent commerce real."
+**What to show:**
+- Pipeline animated viz: dot travelling through ESCROW → DIRECTOR → RISK ANALYST → AUDITOR → SETTLEMENT
+- SETTLEMENT stage is green — only one that earns colour
+- No clicking needed here
 
 ---
 
-## Recording Notes
+## Scene 3 — Live governed execution (0:40 → 1:40)
 
-- Use the live deployed app at `https://brewing-swarms.vercel.app`
-- Backend must be warm — hit `/health` first if on Render free tier
-- For the demo, `POST /api/demo/governed` then immediately switch to Active Jobs tab
-- The governance panel appears automatically when SSE governance events arrive
-- Keep cursor movement deliberate — judges are reading event labels
-- No background music
-- Keep it under 2 minutes — judges watch at 1.5×
+**Screen:** Scroll back up to hero. Click **"Run Demo"**.
+
+**Voiceover — talk through events as they appear:**
+
+*(click "Run Demo" → browser navigates to Dashboard → Active Jobs tab)*
+
+> "I fire the demo. Brewing locks USDC into escrow on Arc.
+> You can see the TX hash appear in the stream."
+
+*(Event: Settlement — "Locking 0.100 USDC in Arc escrow…")*
+
+> "Swarms SequentialWorkflow starts. Director receives the objective —
+> analyse a fifty thousand dollar tokenised RWA portfolio."
+
+*(Events: Director — "Decomposing task brief" / "Structuring governance constraints")*
+
+> "Director produces a structured JSON brief — task description, required fields,
+> constraints, priority. Swarms hands it directly to Risk Analyst."
+
+*(Events: RiskAnalyst — "Structured analysis complete")*
+
+> "Risk Analyst returns governance-grade JSON — risk score zero to ten,
+> recommendation, confidence, key factors. All in one Swarms sequential pass."
+
+*(Events: Auditor — "Starting governance validation — 7 checks")*
+
+> "The Auditor now validates. Seven checks: output completeness, SLA compliance,
+> schema validity, risk score bounds, reasoning depth, agent identity, format.
+> Every one must pass."
+
+*(Audited event — verdict PASS)*
+
+> "Verdict: PASS.
+> Settlement fires. USDC releases to the RiskAnalyst agent on Arc.
+> The governance log is sealed."
+
+*(done event — stream panel dismisses, job flips to ✓ SETTLED)*
+
+**What to show:**
+- LiveStreamPanel at the top of Active Jobs tab showing events one by one
+- Agent labels: Settlement → Director → RiskAnalyst → Auditor → Settlement
+- ◈ GOVERNED badge visible on the task row
+- Stream panel auto-closes ~1.5s after the done event
 
 ---
 
-## Key Phrases to Hit
+## Scene 4 — Governance audit trail (1:40 → 2:10)
 
-| Moment | Say |
-|--------|-----|
-| Start | "There's no enforcement layer" |
-| Demo launch | "This locks USDC in escrow on Arc before any work begins" |
-| Swarms section | "Swarms SequentialWorkflow runs the intelligence layer" |
-| Auditor section | "Seven checks — all of them must pass" |
-| PASS verdict | "USDC released because the agent delivered" |
-| SLASH verdict | "Slash triggered — USDC returned — reputation permanent" |
-| End | "The trust layer for autonomous systems" |
+**Screen:** Click the completed job row to expand it.
+
+**Voiceover:**
+> "Every event is stored. Click the job — full governance receipt.
+>
+> Delegation record. Swarms workflow execution. Auditor's seven-check log —
+> timestamp, result, SLA elapsed.
+>
+> Settlement TX — verifiable on Arc Explorer.
+>
+> This is accountability infrastructure. Not a log. A cryptographic record
+> of what Swarms produced and whether it met governance standards."
+
+**What to show:**
+- Governance event timeline: delegation → executing → auditing → audited → settled
+- Green ◈ GOVERNED badge in the row header
+- Click "Settlement TX ↗" — Arc Explorer opens in new tab, TX visible
+- Come back to dashboard
+
+---
+
+## Scene 5 — Slash enforcement (2:10 → 2:40)
+
+**Screen:** Point to (or show) a job with ✗ SLASHED badge — either from a prior run or fire one now.
+
+**Voiceover:**
+> "Now the enforcement path.
+>
+> An agent submits output that fails governance — incomplete reasoning,
+> SLA breach, malformed schema.
+>
+> The Auditor triggers a slash.
+> USDC returns to the employer automatically, on-chain.
+> The agent's reputation is docked permanently.
+>
+> No human in the loop. No dispute process. Swarms detected the failure.
+> Brewing enforced it."
+
+**What to show:**
+- Red ✗ SLASHED badge on the task row
+- Expand the row: slash TX hash, "USDC returned" amount, reputation before → after
+- The delta shows in red (e.g., 9.0 → 8.9, −0.1)
+
+---
+
+## Scene 6 — Closing (2:40 → 3:00)
+
+**Screen:** Navigate back to landing page `/`
+
+**Voiceover:**
+> "Brewing is governed coordination infrastructure for autonomous agents.
+>
+> Multi-agent orchestration via Swarms SequentialWorkflow.
+> Economic accountability via Circle Arc escrow.
+> Audit enforcement — seven checks, deterministic, on-chain.
+>
+> Swarms handles the intelligence. Brewing handles the accountability.
+>
+> Governed by design."
+
+**What to show:**
+- Hero headline: "Autonomous execution / governed by Brewing."
+- Governance stream still scrolling
+- End on a static frame at the headline — clean close
+
+---
+
+## Recording notes
+
+**If the backend takes longer than expected (Render cold start ~30s):**
+- The full pipeline runs in 60–90s. Do not cut away.
+- Keep narrating: "Swarms is doing the coordination here — Director producing the brief,
+  then handing to RiskAnalyst for execution. Both run inside a single SequentialWorkflow."
+- The events will appear. Don't rush.
+
+**Do NOT show:**
+- The URL bar with localhost — use the Vercel deployment
+- Login / onboarding flow (not needed for the demo path)
+- Any API keys, env vars, or terminal windows
+
+**Keep on screen during stream:**
+- The agent names (Settlement / Director / RiskAnalyst / Auditor)
+- The event message text
+- The ◈ GOVERNED badge
+
+---
+
+## Key Swarms talking points
+
+| Moment | Say exactly this |
+|---|---|
+| Pipeline overview | "Swarms SequentialWorkflow — Director then RiskAnalyst, in sequence" |
+| Director fires | "Director is a Swarms Agent — structured output, governance constraints" |
+| RiskAnalyst fires | "RiskAnalyst is a Swarms Agent — full JSON analysis, governance-grade" |
+| Workflow complete | "Swarms handled the multi-agent coordination. Brewing handled the accountability." |
+| Audit fires | "The Auditor checks what Swarms produced — schema, reasoning depth, SLA, seven total" |
+| Settlement | "Clean audit — USDC settles. Swarms output is now economically accountable." |
+| Slash | "Swarms detected the failure. Brewing enforced it — on-chain, automatically." |
+
+---
+
+## One-paragraph submission description
+
+Brewing is a governed B2B agent coordination layer built on Swarms and Circle Arc.
+Businesses post tasks with a USDC escrow. Swarms SequentialWorkflow chains a Director
+agent (task structuring) with a RiskAnalyst agent (full execution) — both Claude models
+coordinated natively by Swarms. An on-chain Auditor validates the output against seven
+governance criteria. Pass: USDC settles to the agent. Fail: USDC slashes back to the
+employer automatically. Every lifecycle event — delegation, Swarms execution, audit,
+settlement — is stored in a signed governance log with on-chain TX proofs. Brewing makes
+Swarms-powered autonomous execution economically accountable.
