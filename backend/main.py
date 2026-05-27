@@ -386,9 +386,12 @@ async def _run_governed_pipeline(task, req, employer_addr: str):
         async def _governance_emit(event_type: str, kwargs: dict):
             await _emit(tid, event_type, **kwargs)
 
-        director_output, analyst_output = await orch.run(
-            task_description = req.description,
-            emit             = _governance_emit,
+        director_output, analyst_output = await asyncio.wait_for(
+            orch.run(
+                task_description = req.description,
+                emit             = _governance_emit,
+            ),
+            timeout=120,  # 2 min hard cap — surfaces hangs instead of silently stalling
         )
 
         gov_log.record("executing", "RiskAnalyst",

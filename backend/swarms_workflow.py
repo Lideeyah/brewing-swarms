@@ -86,21 +86,21 @@ class BrewingSwarmOrchestrator:
         self.api_key = api_key
         os.environ.setdefault("ANTHROPIC_API_KEY", api_key)
 
-        # Director Agent
+        # Director Agent — use claude-3-5-haiku (fast, litellm-compatible)
         self.director = Agent(
             agent_name    = "Director",
             system_prompt = DIRECTOR_SYSTEM_PROMPT,
-            model_name    = "claude-haiku-4-5-20251001",
+            model_name    = "claude-3-5-haiku-20241022",
             max_loops     = 1,
             streaming_on  = False,
             verbose       = False,
         )
 
-        # Risk Analyst Agent
+        # Risk Analyst Agent — use claude-3-5-sonnet (reliable quality, litellm-compatible)
         self.risk_analyst = Agent(
             agent_name    = "RiskAnalyst",
             system_prompt = RISK_ANALYST_SYSTEM_PROMPT,
-            model_name    = "claude-opus-4-5",
+            model_name    = "claude-3-5-sonnet-20241022",
             max_loops     = 1,
             streaming_on  = False,
             verbose       = False,
