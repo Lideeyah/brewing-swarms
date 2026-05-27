@@ -380,15 +380,15 @@ async def _run_governed_pipeline(task, req, employer_addr: str):
                     message=f"Locking {req.budget_usdc:.3f} USDC in Arc escrow…")
 
         try:
-            escrow    = await client.post_job(
+            escrow    = await asyncio.wait_for(client.post_job(
                 worker          = worker_agent.payment_addr,
                 usdc_amount     = req.budget_usdc,
                 timeout_seconds = req.deadline_hours * 3600,
-            )
+            ), timeout=12)
             job_id    = escrow["job_id"]
             create_tx = escrow["create_tx"]
-        except Exception as _chain_err:
-            # Arc RPC unavailable — use simulated escrow so demo continues
+        except Exception:
+            # Arc RPC slow/unavailable — simulated escrow, pipeline continues unblocked
             import hashlib as _hl
             create_tx = "0x" + _hl.sha256(f"{tid}-escrow".encode()).hexdigest()
             job_id    = int(_hl.sha256(f"{tid}-jobid".encode()).hexdigest()[:8], 16) % 10000 + 1
@@ -479,7 +479,7 @@ async def _run_governed_pipeline(task, req, employer_addr: str):
                         message=f"Audit FAILED — triggering slash on Job #{job_id}…")
 
             try:
-                slash_tx = await client.slash_job(job_id)
+                slash_tx = await asyncio.wait_for(client.slash_job(job_id), timeout=12)
             except Exception:
                 slash_tx = create_tx   # deterministic fallback for demo
 
@@ -529,7 +529,7 @@ async def _run_governed_pipeline(task, req, employer_addr: str):
                     message=f"Audit PASSED — releasing {req.budget_usdc:.3f} USDC to {worker_agent.name}…")
 
         try:
-            settle_tx = await client.complete_job(job_id)
+            settle_tx = await asyncio.wait_for(client.complete_job(job_id), timeout=12)
         except Exception:
             import hashlib as _hl
             settle_tx = "0x" + _hl.sha256(f"{tid}-settle".encode()).hexdigest()
