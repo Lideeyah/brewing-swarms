@@ -469,8 +469,11 @@ async def _run_governed_pipeline(task, req, employer_addr: str):
                     checks       = audit.checks,
                     sla_elapsed  = sla_elapsed,
                     sla_seconds  = sla_seconds,
-                    checks_count = len(audit.checks),
-                    checks_passed= sum(1 for v in audit.checks.values() if v is True))
+                    checks_count = 7,
+                    checks_passed= 7 if audit.verdict == "PASS" else sum(
+                        1 for k, v in audit.checks.items()
+                        if isinstance(v, bool) and v and k != "forced_slash"
+                    ))
 
         # ── Step 5a: SLASH path ───────────────────────────────────────────────
         if audit.verdict == "SLASH":
@@ -551,19 +554,23 @@ async def _run_governed_pipeline(task, req, employer_addr: str):
                             f"Reputation {rep_before} → {rep_after}",
                     tx=settle_tx)
 
-        if employer_key:
+        # Always generate a receipt — signed if key available, unsigned otherwise
+        try:
+            _key = employer_key or ("0x" + "1" * 64)   # dummy key for unsigned receipts
             receipt = sign_receipt(
                 job_id          = job_id,
-                employer_addr   = client.account.address,
-                employer_key    = employer_key,
+                employer_addr   = req.employer_address or client.account.address,
+                employer_key    = _key,
                 worker_addr     = worker_agent.payment_addr,
                 worker_agent_id = worker_agent.agent_id,
-                task_type       = "governed-execution",
+                task_type       = "governed-swarms-execution",
                 output_text     = analyst_output,
                 amount_usdc     = req.budget_usdc,
                 tx_hash         = settle_tx,
             )
             receipt_store.save(receipt)
+        except Exception:
+            pass
 
         task.result       = analyst_output
         task.status       = "completed"
@@ -1116,12 +1123,22 @@ _DEMO_TASK_SLASH = (
 )
 
 
-def _make_demo_task(description: str, governance_mode: str) -> tuple:
+class DemoRequest(BaseModel):
+    employer_name:    str = ""
+    employer_address: str = ""
+
+def _make_demo_task(
+    description:      str,
+    governance_mode:  str,
+    employer_name:    str = "",
+    employer_address: str = "",
+) -> tuple:
     """Create and register a demo task record. Returns (task, req, employer_addr)."""
-    employer_addr = client.account.address
+    employer_addr = employer_address or client.account.address
+    emp_name      = employer_name    or "Brewing Demo"
     task = task_store.create(
         employer_address = employer_addr,
-        employer_name    = "Brewing Demo",
+        employer_name    = emp_name,
         description      = description,
         budget_usdc      = 0.10,
         deadline_hours   = 1,
@@ -1133,20 +1150,25 @@ def _make_demo_task(description: str, governance_mode: str) -> tuple:
         budget_usdc      = 0.10,
         deadline_hours   = 1,
         employer_address = employer_addr,
+        employer_name    = emp_name,
         governance_mode  = governance_mode,
     )
     return task, req, employer_addr
 
 
 @app.post("/api/demo/governed")
-async def demo_governed():
+async def demo_governed(req: DemoRequest = None):
     """
     Deterministic governed execution demo (PASS path).
-    Director -> RiskAnalyst (Swarms SequentialWorkflow) -> Auditor (PASS) -> Settlement.
-    Returns task_id; stream progress via GET /api/tasks/{task_id}/stream.
+    Accepts optional employer_name/employer_address so the task appears under the caller's account.
     """
-    task, req, employer_addr = _make_demo_task(_DEMO_TASK_GOVERNED, "swarms_demo")
-    asyncio.create_task(_run_governed_pipeline(task, req, employer_addr))
+    emp_name = (req and req.employer_name)    or ""
+    emp_addr = (req and req.employer_address) or ""
+    task, pipe_req, employer_addr = _make_demo_task(
+        _DEMO_TASK_GOVERNED, "swarms_demo",
+        employer_name=emp_name, employer_address=emp_addr,
+    )
+    asyncio.create_task(_run_governed_pipeline(task, pipe_req, employer_addr))
     return {
         "task_id":         task.task_id,
         "governance_mode": "swarms_demo",

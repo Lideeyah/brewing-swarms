@@ -2142,15 +2142,17 @@ function ReceiptsTab() {
   const myName    = localStorage.getItem('brewing_employer_name') ?? ''
 
   const matchesMe = (t: TaskRecord) =>
+    !myAddress && !myName ? true :   // no identity = show all
     t.employer_address.toLowerCase() === myAddress.toLowerCase() ||
-    (myName && t.employer_name === myName)
+    (myName && t.employer_name === myName) ||
+    t.employer_name === 'Brewing Demo'  // always show demo-run tasks
 
   useEffect(() => {
     fetch(`${API}/api/tasks`)
       .then(r => r.json())
       .then((d: TaskRecord[]) => {
-        const mine = myAddress || myName ? d.filter(matchesMe) : d
-        const completed = mine.filter(t => t.status === 'completed')
+        const mine      = d.filter(matchesMe)
+        const completed = mine.filter(t => t.status === 'completed' || t.status === 'refunded')
         setTasks(completed)
         if (completed.length > 0) setOpenIds(new Set([completed[0].task_id]))
       })
@@ -2220,15 +2222,22 @@ function ReceiptsTab() {
               onClick={() => toggle(task.task_id)}
               className="w-full text-left px-5 py-3.5 flex items-center gap-3"
             >
-              <span className="text-arc-green text-xs flex-shrink-0">✓</span>
+              <span className={`text-xs flex-shrink-0 ${task.status === 'refunded' ? 'text-red-400' : 'text-arc-green'}`}>
+                {task.status === 'refunded' ? '✗' : '✓'}
+              </span>
               <span className={`font-mono text-arc-muted text-[10px] flex-shrink-0 transition-transform duration-150 ${isOpen ? 'rotate-90' : ''}`}>▶</span>
 
               <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[10px] text-arc-muted flex-shrink-0">#{task.task_id}</span>
                   <span className="font-mono text-[10px] text-arc-sub truncate">
-                    {(task.subtasks ?? []).length > 0 ? (task.subtasks ?? []).map(s => s.agent_name).join(' · ') : 'Agent'}
+                    {(task.subtasks ?? []).length > 0
+                      ? (task.subtasks ?? []).map(s => s.agent_name).join(' · ')
+                      : 'Director · RiskAnalyst · Auditor'}
                   </span>
+                  {(task.subtasks ?? []).length === 0 && (
+                    <span className="font-mono text-[9px] text-arc-green border border-arc-green/30 rounded px-1.5 py-0.5 flex-shrink-0">◈ GOVERNED</span>
+                  )}
                   {i === 0 && <span className="font-mono text-[9px] text-arc-green border border-arc-green/30 rounded px-1.5 py-0.5 flex-shrink-0">Latest</span>}
                 </div>
                 <span className="font-mono text-[11px] text-arc-sub truncate">{snippet}</span>
@@ -2251,23 +2260,41 @@ function ReceiptsTab() {
               <div className="border-t border-arc-border px-5 py-4 flex flex-col gap-4">
                 <p className="font-mono text-[11px] text-arc-sub leading-relaxed">{task.description}</p>
 
-                {/* On-chain proof row */}
-                <div className="flex flex-wrap items-center gap-4 font-mono text-[10px] text-arc-muted">
-                  <span>{(task.subtasks ?? []).filter(s => s.status === 'completed').length}/{(task.subtasks ?? []).length} agents settled on-chain</span>
+                {/* Pipeline / agent info */}
+                {(task.subtasks ?? []).length === 0 ? (
+                  // Governed task — show Swarms pipeline
+                  <div className="flex items-center gap-2 flex-wrap font-mono text-[10px]">
+                    <span className="text-arc-green border border-arc-green/30 rounded px-1.5 py-0.5">◈ GOVERNED</span>
+                    <span className="text-white/40">Director → RiskAnalyst → Auditor → Settlement</span>
+                    <span className="text-white/30">· Swarms SequentialWorkflow</span>
+                  </div>
+                ) : (
+                  <div className="font-mono text-[10px] text-arc-muted">
+                    {(task.subtasks ?? []).filter(s => s.status === 'completed').length}/{(task.subtasks ?? []).length} agents settled on-chain
+                  </div>
+                )}
+
+                {/* On-chain proof + download */}
+                <div className="flex flex-wrap items-center gap-3 font-mono text-[10px]">
                   {firstSettleTx && (
-                    <a href={`${EXPLORER}/tx/${firstSettleTx}`} target="_blank" rel="noreferrer" className="text-arc-green hover:underline">
-                      View on ArcScan ↗
+                    <a href={`${EXPLORER}/tx/${firstSettleTx}`} target="_blank" rel="noreferrer"
+                      className="text-arc-green hover:underline">
+                      Settlement TX ↗
                     </a>
+                  )}
+                  {(task.subtasks ?? []).length === 0 && (
+                    // Governed task — fetch governance audit and show TX
+                    <CompletedGovernancePanel taskId={task.task_id} />
                   )}
                   <button
                     onClick={() => download(task)}
-                    className="text-arc-sub border border-arc-border rounded px-2 py-1 hover:border-arc-green hover:text-arc-green transition-colors"
+                    className="font-mono text-[10px] text-arc-sub border border-arc-border rounded px-2 py-1 hover:border-arc-green hover:text-arc-green transition-colors"
                   >
-                    ↓ Receipt
+                    ↓ Download Receipt
                   </button>
                 </div>
 
-                {/* Result */}
+                {/* Analysis output */}
                 {task.result && (
                   <div className="border border-arc-border rounded-lg p-4 bg-black/40">
                     <MarkdownResult content={task.result} />

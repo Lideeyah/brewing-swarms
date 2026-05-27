@@ -253,15 +253,20 @@ export default function LandingPage() {
     if (demoLoading) return
     setDemoLoading(true)
     try {
-      const res    = await fetch(`${API}/api/demo/governed`, { method: 'POST' })
+      // Pass logged-in user identity so the task appears under their account
+      const employer_name    = localStorage.getItem('brewing_employer_name')    || ''
+      const employer_address = localStorage.getItem('brewing_employer_address') || ''
+      const res    = await fetch(`${API}/api/demo/governed`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ employer_name, employer_address }),
+      })
       const data   = await res.json()
       const taskId = data.task_id ?? ''
-      // Hand off to dashboard: open Jobs tab + pre-load the live task stream
       sessionStorage.setItem('dashboard_tab', 'jobs')
       if (taskId) sessionStorage.setItem('demo_live_task', taskId)
       navigate('/dashboard')
     } catch {
-      // Backend offline — fall back to dashboard so user can try manually
       navigate('/dashboard')
     } finally {
       setDemoLoading(false)

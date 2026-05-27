@@ -115,11 +115,13 @@ def sign_receipt(
     return partial
 
 
-# ── Persistent receipt store ──────────────────────────────────────────────────
+# ── Persistent receipt store (Redis-backed, same as TaskStore) ─────────────────
 
 from pathlib import Path
+from backend.store import read as store_read, write as store_write
 
 RECEIPTS_FILE = Path(__file__).parent.parent / "receipts.json"
+STORE_KEY     = "brewing:receipts"
 
 
 class ReceiptStore:
@@ -142,17 +144,15 @@ class ReceiptStore:
 
     def _persist(self):
         data = {rid: asdict(r) for rid, r in self._receipts.items()}
-        RECEIPTS_FILE.write_text(json.dumps(data, indent=2))
+        store_write(STORE_KEY, RECEIPTS_FILE, data)
 
     def _load(self):
-        if not RECEIPTS_FILE.exists():
-            return
         try:
-            data = json.loads(RECEIPTS_FILE.read_text())
+            data = store_read(STORE_KEY, RECEIPTS_FILE)
             for rid, d in data.items():
                 self._receipts[rid] = WorkReceipt(**d)
         except Exception:
-            pass  # corrupt file — start fresh
+            pass
 
 
 receipt_store = ReceiptStore()
