@@ -1782,10 +1782,15 @@ function LiveStreamPanel({ taskId, onDone }: { taskId: string; onDone: () => voi
       const ev: StreamEvent = JSON.parse(e.data)
       if (['ping', 'text_chunk', 'text_start'].includes(ev.type)) return
       if (ev.type === 'slashed') setSlashed(true)
-      if (ev.type === 'done' || ev.type === 'error') {
+      if (ev.type === 'done') {
         setIsDone(true)
         es.close()
-        setTimeout(onDone, 2000)
+        setTimeout(onDone, 3000)   // dismiss after 3s on success
+      }
+      if (ev.type === 'error') {
+        setIsDone(true)
+        es.close()
+        // keep panel visible — don't auto-dismiss on error so user sees what failed
       }
       setEvents(prev => [...prev, ev])
     }

@@ -233,15 +233,20 @@ export default function LandingPage() {
   const [demoLoading, setDemoLoading] = useState(false)
 
   useEffect(() => {
+    // Wake the backend immediately (Render free tier sleeps after inactivity)
+    fetch(`${API}/health`).catch(() => null)
+
     const fetchStats = () =>
       fetch(`${API}/api/analytics`)
-        .then(r => r.json())
-        .then(d => setStats(d.metrics))
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(d => { if (d?.metrics) setStats(d.metrics) })
         .catch(() => null)
 
+    // Try immediately, then retry after 8s (covers Render cold-start ~15s wake)
     fetchStats()
-    const id = setInterval(fetchStats, 30_000)
-    return () => clearInterval(id)
+    const retry = setTimeout(fetchStats, 8_000)
+    const id    = setInterval(fetchStats, 30_000)
+    return () => { clearTimeout(retry); clearInterval(id) }
   }, [])
 
   const launchDemo = async () => {
