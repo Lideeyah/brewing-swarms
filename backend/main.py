@@ -914,22 +914,18 @@ async def get_task(task_id: str):
 
 @app.get("/api/analytics")
 async def analytics():
-    try:
-        jobs      = await client.get_all_jobs()
-        completed = [j for j in jobs if j.status == "Completed"]
-        agents    = registry.all()
-        tasks     = task_store.all()
-
-        return {
-            "metrics": {
-                "totalJobsCompleted": len(completed),
-                "usdcSettled":        round(sum(j.amount_usdc for j in completed), 2),
-                "activeAgents":       len(agents),
-                "totalTasks":         len(tasks),
-            },
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # Use local task store — fast, no chain iteration needed
+    tasks     = task_store.all()
+    agents    = registry.all()
+    completed = [t for t in tasks if t.status == "completed"]
+    return {
+        "metrics": {
+            "totalJobsCompleted": len(completed),
+            "usdcSettled":        round(sum(t.budget_usdc for t in completed), 2),
+            "activeAgents":       len(agents),
+            "totalTasks":         len(tasks),
+        },
+    }
 
 # ── Slack OAuth callback ──────────────────────────────────────────────────────
 

@@ -1760,126 +1760,182 @@ function GovernancePanel({ events, delegationChain, slashed }: {
 }
 
 function LiveStreamPanel({ taskId, onDone }: { taskId: string; onDone: () => void }) {
-  const [events,          setEvents]          = useState<StreamEvent[]>([])
-  const [current,         setCurrent]         = useState<Record<string, string>>({})
-  const [delegationChain, setDelegationChain] = useState<string[]>([])
-  const [slashed,         setSlashed]         = useState(false)
+  const [events,  setEvents]  = useState<StreamEvent[]>([])
+  const [slashed, setSlashed] = useState(false)
+  const [isDone,  setIsDone]  = useState(false)
+  const [taskDesc,setTaskDesc]= useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  // Fetch the task description so the user knows what's being processed
+  useEffect(() => {
+    if (!taskId) return
+    fetch(`${API}/api/tasks/${taskId}`)
+      .then(r => r.json())
+      .then(d => setTaskDesc(d.description ?? ''))
+      .catch(() => {})
+  }, [taskId])
 
   useEffect(() => {
     if (!taskId) return
     const es = new EventSource(`${API}/api/tasks/${taskId}/stream`)
     es.onmessage = (e) => {
       const ev: StreamEvent = JSON.parse(e.data)
-      if (ev.type === 'ping') return
-      if (ev.type === 'text_chunk' && ev.agent && ev.text) {
-        setCurrent(prev => ({ ...prev, [ev.agent!]: (prev[ev.agent!] ?? '') + ev.text }))
-        return
-      }
-      if (ev.type === 'text_start') return
-
-      // Track delegation chain — any event with an agent name participates
-      if (ev.agent && !['ping', 'text_chunk', 'text_start'].includes(ev.type)) {
-        setDelegationChain(prev =>
-          prev.includes(ev.agent!) ? prev : [...prev, ev.agent!]
-        )
-      }
+      if (['ping', 'text_chunk', 'text_start'].includes(ev.type)) return
       if (ev.type === 'slashed') setSlashed(true)
-
-      setEvents(prev => [...prev, ev])
       if (ev.type === 'done' || ev.type === 'error') {
+        setIsDone(true)
         es.close()
-        setTimeout(onDone, 1500)
+        setTimeout(onDone, 2000)
       }
+      setEvents(prev => [...prev, ev])
     }
     es.onerror = () => es.close()
     return () => es.close()
   }, [taskId])
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [events, current])
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [events])
 
-  const AGENT_COLOR: Record<string, string> = {
-    Director: 'text-white/60', RiskAnalyst: 'text-white/60',
-    Auditor: 'text-white/60', Settlement: 'text-arc-green',
-  }
+  // Stage progress derived from governance events
+  const STAGE_ORDER = ['escrowed', 'delegated', 'executing', 'auditing', 'audited', 'settled', 'slashed']
+  const seenStages  = new Set(events.map(e => e.stage).filter(Boolean))
+  const lastGovStage = (() => {
+    const gov = events.filter(e => e.type === 'governance')
+    return gov.length ? (gov[gov.length - 1].stage ?? '') : ''
+  })()
+  const curIdx = STAGE_ORDER.indexOf(lastGovStage)
 
-  // Execution feed: all non-governance, non-internal events
-  // Governance panel: parallel view with full audit trail
-  const execEvents   = events.filter(e => !['governance', 'ping', 'text_chunk', 'text_start'].includes(e.type))
-  const hasGovEvents = events.some(e => ['governance', 'audited', 'slashed'].includes(e.type))
+  const STEPS = [
+    { label: 'ESCROW',       stages: ['escrowed'] },
+    { label: 'DIRECTOR',     stages: ['delegated'] },
+    { label: 'RISK ANALYST', stages: ['executing'] },
+    { label: 'AUDITOR',      stages: ['auditing', 'audited'] },
+    { label: 'SETTLEMENT',   stages: ['settled', 'slashed'] },
+  ]
+
+  // All renderable events (governance + verdict + outcome)
+  const feedEvents = events.filter(e =>
+    ['governance', 'audited', 'slashed', 'done', 'error'].includes(e.type)
+  )
+
+  const borderColor = slashed ? 'border-red-500/40' : isDone ? 'border-arc-green/40' : 'border-arc-green/25'
 
   return (
-    <div className="flex flex-col gap-3">
-    <div className={`border rounded-xl bg-black p-5 flex flex-col gap-3 font-mono text-xs ${
-      slashed ? 'border-red-500/30' : 'border-arc-green/20'
-    }`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-arc-green text-[10px] uppercase tracking-widest">
-          <span className={`w-2 h-2 rounded-full animate-pulse ${slashed ? 'bg-red-500' : 'bg-arc-green'}`} />
-          {slashed ? 'Execution Slashed' : 'Live Execution Stream'}
+    <div className={`border rounded-xl bg-black font-mono flex flex-col gap-0 overflow-hidden ${borderColor}`}>
+
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06]">
+        <div className="flex items-center gap-2">
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isDone ? '' : 'animate-pulse'} ${slashed ? 'bg-red-500' : 'bg-arc-green'}`} />
+          <span className={`text-xs font-semibold uppercase tracking-widest ${slashed ? 'text-red-400' : 'text-arc-green'}`}>
+            {isDone
+              ? (slashed ? '✗ Slashed — USDC refunded' : '✓ Workflow complete — USDC settled')
+              : 'Governed workflow running…'}
+          </span>
         </div>
-        {slashed && (
-          <span className="text-[10px] text-red-400 font-mono">USDC refunded to employer</span>
-        )}
+        <span className="text-[10px] text-white/30 uppercase tracking-wide">Swarms SequentialWorkflow</span>
       </div>
-      <div className="flex flex-col gap-2 max-h-80 overflow-y-auto">
-        {execEvents.map((ev, i) => (
-          <div key={i} className="flex items-start gap-2">
-            {ev.type === 'routed' ? (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-white/60 font-semibold">→ Router</span>
-                <span className="text-arc-sub">
-                  {ev.pipeline ? 'Full pipeline selected' : `Routed to ${ev.agent}`}
-                  {ev.reason ? `: ${ev.reason}` : ''}
+
+      {/* ── Task being processed ── */}
+      {taskDesc && (
+        <div className="px-5 py-2.5 border-b border-white/[0.04] bg-white/[0.015]">
+          <span className="text-[10px] text-white/30 uppercase tracking-widest mr-2">Task</span>
+          <span className="text-xs text-white/60">
+            {taskDesc.length > 160 ? taskDesc.slice(0, 160) + '…' : taskDesc}
+          </span>
+        </div>
+      )}
+
+      {/* ── Stage progress ── */}
+      <div className="px-5 py-3 border-b border-white/[0.04] flex items-center gap-0">
+        {STEPS.map((step, i) => {
+          const reached = step.stages.some(s => {
+            const si = STAGE_ORDER.indexOf(s)
+            return si >= 0 && si <= curIdx
+          }) || (isDone && !slashed && step.label === 'SETTLEMENT') || (slashed && step.label === 'SETTLEMENT')
+          const isSettlement = step.label === 'SETTLEMENT'
+          const isLast = i === STEPS.length - 1
+          return (
+            <div key={step.label} className="flex items-center flex-1 min-w-0">
+              <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                <div className={`w-2 h-2 rounded-full ${
+                  reached
+                    ? isSettlement && slashed ? 'bg-red-500'
+                    : isSettlement ? 'bg-arc-green'
+                    : 'bg-arc-green'
+                    : 'bg-white/15'
+                }`} />
+                <span className={`text-[9px] tracking-wide whitespace-nowrap ${
+                  reached
+                    ? isSettlement && slashed ? 'text-red-400'
+                    : isSettlement ? 'text-arc-green'
+                    : 'text-white/70'
+                    : 'text-white/25'
+                }`}>{step.label}</span>
+              </div>
+              {!isLast && (
+                <div className={`flex-1 h-px mb-3 mx-1.5 ${reached ? 'bg-white/20' : 'bg-white/08'}`} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ── Live event feed ── */}
+      <div className="px-5 py-3 flex flex-col gap-2.5 max-h-64 overflow-y-auto">
+        {feedEvents.length === 0 && (
+          <div className="text-xs text-white/25 flex items-center gap-2">
+            <span className="animate-pulse">⟳</span>
+            Connecting to workflow…
+          </div>
+        )}
+        {feedEvents.map((ev, i) => {
+          if (ev.type === 'governance') {
+            const agentColor: Record<string, string> = {
+              Settlement: 'text-arc-green', Director: 'text-arc-amber',
+              RiskAnalyst: 'text-white/60', Auditor: 'text-white/60',
+            }
+            return (
+              <div key={i} className="flex items-start gap-3">
+                <span className={`text-xs font-semibold w-[6.5rem] flex-shrink-0 ${agentColor[ev.agent ?? ''] ?? 'text-white/50'}`}>
+                  {ev.agent}
                 </span>
-                {!ev.pipeline && ev.agent && (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded border border-arc-green/30 ${AGENT_COLOR[ev.agent] ?? 'text-white'}`}>
-                    {ev.agent}
-                  </span>
+                <span className="text-xs text-white/60 leading-relaxed">{ev.message}</span>
+                {ev.tx && (
+                  <a href={`${EXPLORER}/tx/${ev.tx}`} target="_blank" rel="noreferrer"
+                    className="text-white/25 hover:text-arc-green text-[10px] ml-auto flex-shrink-0">TX ↗</a>
                 )}
               </div>
-            ) : ev.type === 'audited' ? (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-purple-400 font-semibold">◈ Auditor</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold border ${
-                  ev.verdict === 'PASS'
-                    ? 'bg-arc-green/10 text-arc-green border-arc-green/30'
-                    : 'bg-red-500/10 text-red-400 border-red-500/30'
-                }`}>{ev.verdict}</span>
-                <span className="text-arc-muted">{ev.reason}</span>
-              </div>
-            ) : ev.type === 'slashed' ? (
-              <div className="flex items-center gap-2 flex-wrap text-red-400">
-                <span className="font-semibold">✗ SLASHED</span>
-                <span className="text-red-300/70">Job #{ev.job_id} — {ev.reason}</span>
-              </div>
-            ) : (
-              <>
-                {ev.agent && <span className={`flex-shrink-0 font-semibold ${AGENT_COLOR[ev.agent] ?? 'text-white'}`}>{ev.agent}</span>}
-                <span className={`${ev.type === 'error' ? 'text-red-400' : ev.type === 'done' ? 'text-arc-green' : 'text-arc-sub'}`}>
-                  {ev.message ?? (ev.type === 'done' ? (slashed ? '✗ Execution slashed — USDC refunded' : '✓ All agents complete') : ev.type)}
-                </span>
-              </>
-            )}
-          </div>
-        ))}
-        {Object.entries(current).map(([agent, text]) => text && (
-          <div key={agent} className="flex flex-col gap-1">
-            <span className={`font-semibold text-[10px] ${AGENT_COLOR[agent] ?? 'text-white'}`}>{agent} output:</span>
-            <span className="text-arc-sub leading-relaxed whitespace-pre-wrap">{text}<span className="animate-pulse">▌</span></span>
-          </div>
-        ))}
+            )
+          }
+          if (ev.type === 'audited') return (
+            <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${
+              ev.verdict === 'PASS'
+                ? 'border-arc-green/30 bg-arc-green/[0.06] text-arc-green'
+                : 'border-red-500/30 bg-red-500/[0.06] text-red-400'
+            }`}>
+              <span className="text-xs font-bold">{ev.verdict === 'PASS' ? '✓ AUDIT PASSED' : '✗ AUDIT FAILED'}</span>
+              <span className="text-xs opacity-60">{ev.checks_passed ?? '?'}/{ev.checks_count ?? 7} checks</span>
+              {ev.sla_elapsed != null && <span className="text-xs opacity-40 ml-auto">{ev.sla_elapsed}s</span>}
+            </div>
+          )
+          if (ev.type === 'slashed') return (
+            <div key={i} className="flex items-center gap-2 text-red-400 text-xs">
+              <span className="font-bold">✗ SLASHED</span>
+              <span className="text-red-300/70">{ev.reason}</span>
+            </div>
+          )
+          if (ev.type === 'done') return (
+            <div key={i} className={`text-xs font-semibold ${slashed ? 'text-red-400' : 'text-arc-green'}`}>
+              {slashed ? '✗ Execution slashed — USDC refunded to employer' : '✓ All stages complete — USDC settled on-chain'}
+            </div>
+          )
+          if (ev.type === 'error') return (
+            <div key={i} className="text-xs text-red-400">{ev.message}</div>
+          )
+          return null
+        })}
         <div ref={bottomRef} />
       </div>
-    </div>
-
-    {hasGovEvents && (
-      <GovernancePanel
-        events          = {events}
-        delegationChain = {delegationChain}
-        slashed         = {slashed}
-      />
-    )}
     </div>
   )
 }
