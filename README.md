@@ -1,136 +1,374 @@
 # Brewing
 
-**The Athenian Agora for autonomous agents.**
+**Governed coordination and settlement infrastructure for autonomous systems.**
 
-In classical Athens, the agora wasn't just a marketplace — it was the coordination layer that let strangers transact with each other, build reputation, and create a shared economic memory. It worked because the city enforced the rules.
+Brewing is the enforcement layer that makes autonomous agent coordination safe enough to run at scale. Not an AI marketplace. Not a chatbot wrapper. Infrastructure: escrow-enforced delegation, structured audit validation, and deterministic slash — all running on Arc L1 with USDC as the settlement currency.
 
-AI agents are ready to be economic actors. They can research, negotiate, execute, delegate. But they're transacting in a vacuum — no escrow, no SLA enforcement, no trust between agents that have never met. The employer agent hopes the worker delivers. The worker hopes it gets paid. When it goes wrong, there's no agora to settle it.
-
-Brewing is that coordination layer. A decentralized clearinghouse and control plane for the agentic economy — built on Circle's Arc L1, where USDC is the native settlement currency.
+Built for the [Swarms Hackathon](https://swarms.world). Powered by [Swarms](https://github.com/kyegomez/swarms).
 
 ---
 
-## The Problem with Agent Commerce Today
+## The Problem
 
-When one AI agent hires another, three things have to be true for it to work:
+AI agents can delegate, research, execute, and coordinate. But when one autonomous system hires another, there is no enforcement layer:
 
-1. **The worker gets paid** — even if the employer agent decides not to, goes offline, or gets replaced
-2. **The employer gets recourse** — if the worker misses the deadline or delivers nothing, funds come back
-3. **Neither party needs to trust the other** — agents from different systems, different teams, different companies, transacting cold
+- The worker might deliver nothing and still expect payment
+- The employer might accept delivery and refuse to pay
+- A slow or malformed output has no on-chain consequence
 
-None of this exists today. Brewing builds it.
+This is not a UX problem. It is an infrastructure problem. Without escrow, audit, and slash — agent commerce is trust-based, which means it doesn't scale.
+
+Brewing solves this with three primitives: **economic lock**, **governed validation**, and **deterministic enforcement**.
 
 ---
 
-## Four Pillars
+## How It Works
 
-### I. Agent Commerce Protocol — Autonomous B2B Negotiation
-A Planner Agent needing a capability doesn't hardcode a worker. It queries Brewing's active registry, compares workers by on-chain track record, negotiates execution parameters, and commits the deal to escrow — fully autonomously. No human scheduling the handoff.
-
-### II. AgentVaults — Economic Security & SLA Enforcement
-Funds lock the moment a job is posted. The escrow is the contract, not a promise. If the worker delivers and the employer approves, USDC moves to the worker in under a second. If the SLA deadline passes with no delivery, the contract slashes the job and refunds the employer. No arbitration. No appeals. No humans.
+Every governed task follows one path:
 
 ```
-create_job()  →  USDC locked  →  worker executes
-                                      │
-                          ┌───────────┴───────────┐
-                     approved                  SLA breach
-                          │                        │
-                    complete_job()           slash_job()
-                          │                        │
-                   USDC → worker           USDC → employer
+Employer POST /api/tasks  (governance_mode: "swarms_demo" | "slash_demo")
+     │
+     ├─ 1. ESCROW
+     │      USDC locked in AgentEscrow (Arc L1) before any work begins
+     │      No escrow → no execution
+     │
+     ├─ 2. DELEGATION  (Swarms SequentialWorkflow)
+     │      Director Agent  ──── structures the task brief
+     │          │
+     │      RiskAnalyst Agent ── executes the analysis
+     │      (claude-haiku-4-5 → claude-opus-4-5)
+     │
+     ├─ 3. AUDIT  (AuditorAgent — 7 checks)
+     │      ✓ SLA compliance
+     │      ✓ Output non-empty
+     │      ✓ Structured JSON present
+     │      ✓ Required fields: risk_score, recommendation, reasoning
+     │      ✓ risk_score in [0, 10]
+     │      ✓ reasoning depth ≥ 20 chars
+     │      ✓ LLM quality review (Claude Haiku fallback)
+     │
+     ├─ 4a. PASS  → complete_job()  → USDC released to worker
+     │              reputation score increases
+     │
+     └─ 4b. SLASH → slash_job()    → USDC returned to employer
+                     reputation score penalised
 ```
 
-### III. Verifiable Agent Identity — On-Chain Provenance
-Every agent carries a non-transferable identity card: owner, endpoints, payment address, reputation score. Every task produces a cryptographically signed receipt, creating an immutable delegation trace from human principal down through every sub-agent that touched the job. Built for the audit trail that enterprise deployments will require.
-
-### IV. USDC-Native Micropayments — Zero Gas Friction
-On any other chain, paying agents in USDC means ERC20 `approve` + `transferFrom` — two transactions, gas in a volatile asset, fees that can exceed the task value. On Arc, USDC is the native gas token. Agents earn it, spend it, and pay execution fees in the same asset. A $0.10 task costs ~$0.01 in fees. A circular agent economy that's actually economical.
+Every stage is recorded as an immutable governance event. Every event is emitted as a real-time SSE stream to the frontend. Every economic outcome is settled on Arc testnet.
 
 ---
 
-## Live on Arc Testnet
+## Swarms Integration
 
-**Contract:** [`0x584164ce429991C30B5c83D5774d0870A77F5A22`](https://testnet.arcscan.app/address/0x584164ce429991C30B5c83D5774d0870A77F5A22)
+Brewing uses Swarms `SequentialWorkflow` to run the Director → RiskAnalyst intelligence layer:
 
-Not a demo. Not a simulation. Real transactions on Arc testnet, verifiable on the block explorer right now.
+```python
+from swarms import Agent
+from swarms.structs import SequentialWorkflow
 
-| Job | Task | USDC | Result | TX |
-|-----|------|------|--------|----|
-| #7 | Market research | $0.10 | ✅ Worker paid | [view ↗](https://testnet.arcscan.app/tx/0xc910eb0b683e7abf1536d40df95c4b05fad3fef5204b0ce618f8b786c6ee85ba) |
-| #8 | Competitive analysis | $0.10 | ✅ Worker paid | [view ↗](https://testnet.arcscan.app/tx/0x0436aae001d64011614ab8d7670bc7616e41a5e4cf55fa6e01aeee462baae60d) |
-| #9 | Product strategy | $0.10 | ✅ Worker paid | [view ↗](https://testnet.arcscan.app/tx/0xbedd40dcf8f111aa07bf8bdfa636609e11a84b78c7bf008d41e1a306ca553314) |
-| #10 | Adversarial (1s SLA) | $0.05 | 🔴 Slashed → refunded | [view ↗](https://testnet.arcscan.app/tx/0x328f71732680742d7b7585a848466284b52f95b3356a48a15eab3e18adc3ec6b) |
+director = Agent(
+    agent_name    = "Director",
+    system_prompt = DIRECTOR_SYSTEM_PROMPT,   # structured JSON brief
+    model_name    = "claude-haiku-4-5-20251001",
+    max_loops     = 1,
+)
 
-$0.60 USDC settled to workers. $0.35 USDC slashed back to employers. Every wei accounted for.
+risk_analyst = Agent(
+    agent_name    = "RiskAnalyst",
+    system_prompt = RISK_ANALYST_SYSTEM_PROMPT,  # governance-grade JSON output
+    model_name    = "claude-opus-4-5",
+    max_loops     = 1,
+)
 
----
+workflow = SequentialWorkflow(
+    agents      = [director, risk_analyst],
+    output_type = "str",   # required — default dict breaks extraction
+    max_loops   = 1,
+)
+```
 
-## Reputation, On-Chain
-
-The reputation model is designed to be manipulation-resistant. A thin track record isn't worth the same as a deep one. Diversity across chains counts. Contract breaches are permanent.
-
-$$\text{Score} = \left(\frac{\text{baseScore} \times \text{volumeMultiplier}}{10000}\right) + \text{diversityBonus} - \text{slashPenalty}$$
-
-Where `volumeMultiplier` scales logarithmically — 50 completed jobs isn't 10× better than 5, but it's meaningfully more trustworthy. And a slash penalty from `AgentEscrow` is immutable. You can't delete bad history.
-
----
-
-## The Stack
-
-| Layer | Tech |
-|-------|------|
-| Escrow contract | Vyper 0.4.0 — 147 lines, `msg.value` / `send()` |
-| Chain | Arc L1 · EVM · Chain ID 5042002 · Native USDC |
-| Agent custody | Circle Developer-Controlled Wallets (MPC, keys never leave Circle HSM) |
-| AI agents | Claude claude-opus-4-5 — autonomous task execution loop |
-| Concurrency | `asyncio.Lock()` + 3.5s pacemaker — governed, enterprise-grade throughput |
-| Tests | titanoboa — 22 tests, 0.38s |
-| Backend | FastAPI + web3.py |
-| Dashboard | React + Vite — live on-chain feed |
+The Swarms layer handles intelligence. Brewing's `AuditorAgent` validates the output. The Arc SDK handles economic settlement. Three distinct layers, cleanly separated.
 
 ---
 
-## Run It
+## Demo Endpoints
+
+Two deterministic execution paths. No setup required. Call them and watch the governance flow.
+
+### Governed Demo (PASS path)
 
 ```bash
-git clone https://github.com/Lideeyah/brewing-agora-agents
-cd brewing-agora-agents
-
-python3.11 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-# Tests — no devnet, no wallet, no setup
-pytest tests/ -v
-# 22 passed in 0.38s
-
-# Live agent demo — posts jobs, Claude works, USDC settles on Arc
-cp .env.example .env  # add ARC_RPC_URL + ANTHROPIC_API_KEY
-python3 -m backend.agent
-
-# Dashboard
-uvicorn backend.main:app --reload --port 8000 &
-cd app && npm install && npm run dev
-# → http://localhost:5173/arc
+POST https://brewing-swarms-api.onrender.com/api/demo/governed
 ```
 
-The live contract is already deployed. You don't need to redeploy to run the demo.
+```bash
+curl -s -X POST https://brewing-swarms-api.onrender.com/api/demo/governed | jq .
+# {
+#   "task_id": "a7f3c2e1",
+#   "governance_mode": "swarms_demo",
+#   "expected_outcome": "PASS — USDC settled on audit success",
+#   "pipeline": "Director → RiskAnalyst → Auditor → Settlement",
+#   "stream_url": "/api/tasks/a7f3c2e1/stream",
+#   "governance_url": "/api/tasks/a7f3c2e1/governance"
+# }
+```
+
+Then stream the live execution:
+
+```bash
+curl -N https://brewing-swarms-api.onrender.com/api/tasks/{task_id}/stream
+```
+
+### Slash Demo (SLASH path — deterministic)
+
+```bash
+POST https://brewing-swarms-api.onrender.com/api/demo/slash
+```
+
+```bash
+curl -s -X POST https://brewing-swarms-api.onrender.com/api/demo/slash | jq .
+# {
+#   "task_id": "b2d9e4c7",
+#   "governance_mode": "slash_demo",
+#   "expected_outcome": "SLASH — USDC returned to employer via governance enforcement",
+#   "pipeline": "Director → RiskAnalyst → Auditor (SLASH) → Refund",
+#   ...
+# }
+```
+
+### Full Governance Audit Trail
+
+```bash
+GET https://brewing-swarms-api.onrender.com/api/tasks/{task_id}/governance
+# Returns: delegation_chain, outcome, duration_s, audit_verdict, all events
+```
+
+```bash
+GET https://brewing-swarms-api.onrender.com/api/governance/logs
+# Returns: summary of all governed tasks
+```
 
 ---
 
-## What's Being Built
+## Live Deployments
 
-Brewing is infrastructure, not an app. The immediate implementation — escrow, SLA enforcement, agent loop — is the foundation. The protocol roadmap:
-
-- **IPFS job specs** — structured task definitions agents can parse and verify (already wired in the contract as `ipfs_spec_hash`)
-- **Multi-agent task graphs** — Planner agents decompose, Brewing routes and settles each sub-task independently
-- **ERC-8004 Agent Cards** — standardized on-chain identity for the agentic ecosystem
-- **SDK integrations** — plug Brewing into LangChain, AutoGen, CrewAI with a single import
-- **Mainnet** — same contract, same economics, real USDC
-
-The agentic economy needs a clearinghouse. Every mature market does.
+| Service | URL |
+|---------|-----|
+| Frontend | https://brewing-swarms.vercel.app |
+| Backend API | https://brewing-swarms-api.onrender.com |
+| API health | https://brewing-swarms-api.onrender.com/health |
+| Arc Explorer | https://testnet.arcscan.app |
 
 ---
 
-*Built for the [Canteen Agora Agents Hackathon](https://thecanteenapp.com) · May 2026*
-*Arc Testnet · [testnet.arcscan.app](https://testnet.arcscan.app/address/0x584164ce429991C30B5c83D5774d0870A77F5A22)*
+## On-Chain Contracts
+
+| Contract | Address | Network |
+|----------|---------|---------|
+| AgentEscrow | [`0x584164ce429991C30B5c83D5774d0870A77F5A22`](https://testnet.arcscan.app/address/0x584164ce429991C30B5c83D5774d0870A77F5A22) | Arc Testnet |
+| USDC | `0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d` | Arc Testnet |
+
+Arc Testnet — Chain ID: 5042002 — RPC: `https://rpc-arc-testnet.circle.com`
+
+USDC is the native gas token on Arc. Agents earn it, spend it, and pay execution fees in the same asset. A $0.10 task costs ~$0.01 in fees.
+
+---
+
+## Governance Events
+
+Every governed execution produces an append-only log of typed events:
+
+| Event | Agent | Meaning |
+|-------|-------|---------|
+| `escrowed` | Settlement | USDC locked in escrow |
+| `delegated` | Director | Task brief structured and delegated |
+| `executing` | RiskAnalyst | Swarms workflow complete |
+| `auditing` | Auditor | 7-check validation starting |
+| `audited` | Auditor | Verdict returned: PASS or SLASH |
+| `settled` | Settlement | USDC released to worker |
+| `slashed` | Settlement | USDC returned to employer |
+| `reputation_updated` | Settlement | Agent score updated |
+| `refunded` | Settlement | Error path — USDC returned |
+
+See [SYSTEM_LOGS.md](./SYSTEM_LOGS.md) for full execution traces.
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Frontend (React + Vite)                                         │
+│  PostTaskTab — Governance Demo buttons — Live SSE stream         │
+│  GovernancePanel — WorkflowSteps — AuditChecksDetail             │
+└────────────────────────┬────────────────────────────────────────┘
+                         │ HTTP + SSE
+┌────────────────────────▼────────────────────────────────────────┐
+│  Backend (FastAPI)                                               │
+│                                                                  │
+│  POST /api/tasks          POST /api/demo/governed                │
+│  GET  /api/tasks/stream   POST /api/demo/slash                   │
+│  GET  /api/tasks/governance                                      │
+│                                                                  │
+│  BrewingSwarmOrchestrator                                        │
+│    └─ Swarms SequentialWorkflow                                  │
+│         ├─ Director Agent (claude-haiku-4-5)                     │
+│         └─ RiskAnalyst Agent (claude-opus-4-5)                   │
+│                                                                  │
+│  AuditorAgent (7 checks — PASS / SLASH verdict)                  │
+│  GovernanceLog (append-only per-task event store)                │
+└────────────────────────┬────────────────────────────────────────┘
+                         │ web3.py + Circle SDK
+┌────────────────────────▼────────────────────────────────────────┐
+│  Arc L1 (EVM, Chain ID 5042002)                                  │
+│  AgentEscrow.vy — Vyper 0.4.0                                    │
+│  Circle Developer-Controlled Wallets (MPC)                       │
+│  USDC native gas token                                           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Agent orchestration | [Swarms](https://github.com/kyegomez/swarms) — SequentialWorkflow |
+| AI models | Anthropic claude-haiku-4-5, claude-opus-4-5 |
+| Escrow contract | Vyper 0.4.0 — AgentEscrow on Arc L1 |
+| Settlement chain | Arc Testnet — EVM, USDC native gas |
+| Agent custody | Circle Developer-Controlled Wallets (MPC) |
+| Backend | FastAPI — async SSE event streaming |
+| Frontend | React + Vite + Tailwind |
+
+---
+
+## Run Locally
+
+### Backend
+
+```bash
+git clone https://github.com/Lideeyah/brewing-swarms
+cd brewing-swarms
+
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+cp .env.example .env
+# Fill in: ANTHROPIC_API_KEY, CIRCLE_API_KEY, CIRCLE_ENTITY_SECRET,
+#           CIRCLE_WALLET_SET_ID, ARC_RPC_URL, ARC_PRIVATE_KEY
+
+uvicorn backend.main:app --reload --port 8000
+# → http://localhost:8000
+# → http://localhost:8000/health
+```
+
+### Frontend
+
+```bash
+cd frontend
+cp .env.example .env.local
+# Set VITE_ARC_API_URL=http://localhost:8000
+
+npm install
+npm run dev
+# → http://localhost:5173
+```
+
+### Run the demo
+
+```bash
+# Terminal 1: backend running
+
+# Terminal 2: fire a governed demo
+curl -X POST http://localhost:8000/api/demo/governed | jq .
+
+# Stream the governance events live
+curl -N http://localhost:8000/api/tasks/{task_id}/stream
+
+# Get the full audit trail
+curl http://localhost:8000/api/tasks/{task_id}/governance | jq .
+```
+
+---
+
+## Deploy
+
+### Backend (Render)
+
+`render.yaml` is pre-configured. In the Render dashboard:
+
+1. New Web Service → connect `Lideeyah/brewing-swarms`
+2. Render auto-detects `render.yaml` — service name: `brewing-swarms-api`
+3. Add env vars (mark as secret):
+   - `ANTHROPIC_API_KEY`
+   - `CIRCLE_API_KEY`
+   - `CIRCLE_ENTITY_SECRET`
+   - `CIRCLE_WALLET_SET_ID`
+   - `CIRCLE_WALLET_ID`
+   - `CIRCLE_WALLET_ADDRESS`
+   - `ARC_RPC_URL` = `https://rpc-arc-testnet.circle.com`
+   - `ARC_PRIVATE_KEY`
+4. Deploy — first boot pre-warms the Swarms orchestrator
+
+### Frontend (Vercel)
+
+`vercel.json` is pre-configured. In the Vercel dashboard:
+
+1. Import `Lideeyah/brewing-swarms`
+2. Add env var: `VITE_ARC_API_URL` = `https://brewing-swarms-api.onrender.com`
+3. Deploy — builds `frontend/` and serves as SPA
+
+Or via CLI:
+
+```bash
+vercel --prod
+# Set VITE_ARC_API_URL in Vercel project settings
+```
+
+---
+
+## Governance Positioning
+
+Brewing is not:
+- An AI marketplace
+- A multi-agent app
+- A chatbot platform
+
+Brewing is:
+- **Economic enforcement** for autonomous delegation
+- **Audit infrastructure** for agent output validation
+- **Settlement coordination** for AI-to-AI micropayments
+
+The Swarms SequentialWorkflow provides the intelligence layer. Brewing wraps it with the enforcement layer that makes it safe to run with real economic consequences.
+
+---
+
+## Project Structure
+
+```
+brewing-swarms/
+├── backend/
+│   ├── main.py              FastAPI — routes, SSE, governed pipeline
+│   ├── swarms_workflow.py   BrewingSwarmOrchestrator (Swarms wrapper)
+│   ├── auditor.py           AuditorAgent — 7-check governance validation
+│   ├── governance.py        GovernanceLog — append-only event store
+│   ├── brewing_sdk.py       Arc L1 escrow client
+│   ├── registry.py          Agent registry + reputation
+│   └── circle_wallets.py    Circle DCW provisioning
+├── frontend/
+│   └── src/pages/Dashboard.tsx  Full governance UI
+├── contracts/
+│   └── AgentEscrow.vy       Vyper escrow contract (deployed)
+├── tests/
+│   └── test_escrow.py       Contract tests
+├── SYSTEM_LOGS.md           Governance execution traces
+├── render.yaml              Render deployment config
+└── vercel.json              Vercel deployment config
+```
+
+---
+
+*Built for the Swarms Hackathon · May 2026*
+*Arc Testnet · Circle Developer-Controlled Wallets · Swarms SequentialWorkflow*
