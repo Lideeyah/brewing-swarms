@@ -129,11 +129,11 @@ function PipelineViz() {
               />
             )}
             <span className="font-mono text-[9px] tracking-[0.15em] font-bold"
-              style={{ color: active === i ? stage.color : 'rgba(255,255,255,0.3)' }}>
+              style={{ color: active === i ? stage.color : 'rgba(255,255,255,0.5)' }}>
               {stage.label}
             </span>
             <span className="font-mono text-[9px] text-center leading-snug"
-              style={{ color: active === i ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.2)' }}>
+              style={{ color: active === i ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.4)' }}>
               {stage.sub}
             </span>
           </div>
@@ -197,22 +197,22 @@ function AgentCard({ agent }: { agent: typeof AGENTS[0] }) {
       {/* Stats */}
       <div className="border-t pt-4 grid grid-cols-3 gap-2" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
         <div className="flex flex-col gap-1">
-          <div className="font-mono text-[8px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.25)' }}>Reputation</div>
+          <div className="font-mono text-[8px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>Reputation</div>
           <div className="font-mono text-base font-bold" style={{ color: agent.accent }}>{agent.rep.toFixed(1)}</div>
         </div>
         <div className="flex flex-col gap-1">
-          <div className="font-mono text-[8px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.25)' }}>Governed Jobs</div>
+          <div className="font-mono text-[8px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>Governed Jobs</div>
           <div className="font-mono text-base font-bold text-white">{agent.jobs.toLocaleString()}</div>
         </div>
         <div className="flex flex-col gap-1">
-          <div className="font-mono text-[8px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.25)' }}>USDC Earned</div>
+          <div className="font-mono text-[8px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>USDC Earned</div>
           <div className="font-mono text-base font-bold text-white">{agent.earned}</div>
         </div>
       </div>
 
       {/* Reputation bar */}
       <div className="flex flex-col gap-1.5">
-        <div className="flex justify-between font-mono text-[9px]" style={{ color: 'rgba(255,255,255,0.25)' }}>
+        <div className="flex justify-between font-mono text-[9px]" style={{ color: 'rgba(255,255,255,0.5)' }}>
           <span>Governance score</span><span>{agent.rep.toFixed(1)} / 10</span>
         </div>
         <div className="h-0.5 rounded-full w-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
@@ -336,17 +336,17 @@ export default function LandingPage() {
           <div className="float-in-0 flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 rounded-full px-3 py-1.5"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <span className="font-mono text-[10px] tracking-widest" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              <span className="font-mono text-[10px] tracking-widest" style={{ color: 'rgba(255,255,255,0.65)' }}>
                 POWERED BY SWARMS
               </span>
             </div>
-            <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+            <span style={{ color: 'rgba(255,255,255,0.35)' }}>·</span>
             <div className="flex items-center gap-2 rounded-full px-3 py-1.5"
               style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
               <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ background: '#10b981' }} />
               <span className="font-mono text-[10px] text-arc-green tracking-widest">3 WORKFLOWS ACTIVE</span>
             </div>
-            <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+            <span style={{ color: 'rgba(255,255,255,0.35)' }}>·</span>
             <div className="flex items-center gap-2 rounded-full px-3 py-1.5"
               style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.15)' }}>
               <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ background: '#a855f7' }} />
@@ -362,7 +362,7 @@ export default function LandingPage() {
                   Autonomous execution<br />
                   <span style={{ color: '#10b981' }}>governed by Brewing.</span>
                 </h1>
-                <p className="font-mono text-base leading-relaxed" style={{ color: 'rgba(255,255,255,0.45)', maxWidth: 440 }}>
+                <p className="font-mono text-base leading-relaxed" style={{ color: 'rgba(255,255,255,0.72)', maxWidth: 440 }}>
                   AI agents can coordinate and generate outputs. The missing layer is accountability.
                   Brewing enforces it — economically, on-chain, in real time.
                 </p>
@@ -398,7 +398,7 @@ export default function LandingPage() {
                   ].map(s => (
                     <div key={s.l} className="flex flex-col gap-0.5">
                       <span className="font-mono text-xl font-bold text-white">{s.v}</span>
-                      <span className="font-mono text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{s.l}</span>
+                      <span className="font-mono text-[10px]" style={{ color: 'rgba(255,255,255,0.55)' }}>{s.l}</span>
                     </div>
                   ))}
                 </div>
@@ -412,10 +412,10 @@ export default function LandingPage() {
                   <span className="w-1.5 h-1.5 rounded-full pulse-dot bg-arc-green" />
                   <span className="font-mono text-[10px] text-arc-green tracking-widest">LIVE GOVERNANCE STREAM</span>
                 </div>
-                <span className="font-mono text-[9px]" style={{ color: 'rgba(255,255,255,0.2)' }}>Arc Testnet</span>
+                <span className="font-mono text-[9px]" style={{ color: 'rgba(255,255,255,0.7)' }}>Arc Testnet</span>
               </div>
               <GovernanceStream />
-              <div className="flex items-center gap-4 font-mono text-[9px]" style={{ color: 'rgba(255,255,255,0.2)' }}>
+              <div className="flex items-center gap-4 font-mono text-[9px]" style={{ color: 'rgba(255,255,255,0.7)' }}>
                 {[['#10b981','SETTLED'],['#a855f7','AUDITING'],['#ef4444','SLASHED'],['#f59e0b','DELEGATED'],['#60a5fa','EXECUTING']].map(([c,l]) => (
                   <div key={l} className="flex items-center gap-1">
                     <span className="w-1 h-1 rounded-full" style={{ background: c as string }} />
@@ -432,10 +432,10 @@ export default function LandingPage() {
       <div className="relative" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.015)' }}>
         <div className="max-w-6xl mx-auto px-6 py-20 flex flex-col gap-10">
           <div className="flex flex-col gap-2">
-            <div className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.25)' }}>
+            <div className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>
               The Governance Pipeline
             </div>
-            <p className="font-mono text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            <p className="font-mono text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
               Every workflow passes through five enforced stages. No stage can be skipped. No payment before audit.
             </p>
           </div>
@@ -447,7 +447,7 @@ export default function LandingPage() {
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 <span className="font-mono text-[11px] text-white font-semibold">{s.label}</span>
-                <span className="font-mono text-[10px] leading-snug" style={{ color: 'rgba(255,255,255,0.3)' }}>{s.sub}</span>
+                <span className="font-mono text-[10px] leading-snug" style={{ color: 'rgba(255,255,255,0.55)' }}>{s.sub}</span>
               </div>
             ))}
           </div>
@@ -459,10 +459,10 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 py-20 flex flex-col gap-10">
           <div className="flex items-end justify-between">
             <div className="flex flex-col gap-2">
-              <div className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              <div className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 Operational Agents
               </div>
-              <p className="font-mono text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              <p className="font-mono text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
                 Governed, audited, economically active.
               </p>
             </div>
@@ -487,13 +487,13 @@ export default function LandingPage() {
 
           {/* Problem */}
           <div className="flex flex-col gap-6">
-            <div className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.2)' }}>Without enforcement</div>
+            <div className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.7)' }}>Without enforcement</div>
             <h2 className="font-bold text-3xl leading-tight" style={{ color: 'rgba(255,255,255,0.5)' }}>
               Autonomous coordination<br />fails at scale.
             </h2>
             <div className="flex flex-col gap-3">
               {['No guarantee of output quality', 'No consequence for failure', 'No audit trail', 'No economic accountability'].map(t => (
-                <div key={t} className="flex items-center gap-3 font-mono text-[12px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                <div key={t} className="flex items-center gap-3 font-mono text-[12px]" style={{ color: 'rgba(255,255,255,0.55)' }}>
                   <span className="text-red-500/60 text-xs flex-shrink-0">✗</span>
                   {t}
                 </div>
@@ -522,7 +522,7 @@ export default function LandingPage() {
       {/* ── Built With ──────────────────────────────────────────────────────── */}
       <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="max-w-6xl mx-auto px-6 py-14 flex flex-col gap-6 items-center">
-          <div className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.2)' }}>Built With</div>
+          <div className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.7)' }}>Built With</div>
           <div className="flex flex-wrap items-center justify-center gap-8">
             {[
               { label: 'SWARMS',      sub: 'Multi-Agent Orchestration',  color: '#10b981' },
@@ -533,9 +533,9 @@ export default function LandingPage() {
               <div key={b.label} className="flex items-center gap-8">
                 <div className="flex flex-col items-center gap-1">
                   <span className="font-mono text-sm font-bold tracking-wider" style={{ color: b.color }}>{b.label}</span>
-                  <span className="font-mono text-[9px]" style={{ color: 'rgba(255,255,255,0.2)' }}>{b.sub}</span>
+                  <span className="font-mono text-[9px]" style={{ color: 'rgba(255,255,255,0.7)' }}>{b.sub}</span>
                 </div>
-                {i < 3 && <span style={{ color: 'rgba(255,255,255,0.1)' }}>·</span>}
+                {i < 3 && <span style={{ color: 'rgba(255,255,255,0.3)' }}>·</span>}
               </div>
             ))}
           </div>
@@ -547,7 +547,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(16,185,129,0.1) 0%, transparent 55%)' }} />
         <div className="relative max-w-6xl mx-auto px-6 py-28 flex flex-col items-center gap-7 text-center">
-          <div className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.2)' }}>
+          <div className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.7)' }}>
             The Trust Layer for Autonomous Systems
           </div>
           <h2 className="font-bold leading-tight" style={{ fontSize: 'clamp(1.8rem, 4vw, 2.8rem)', maxWidth: 560 }}>
