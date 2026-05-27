@@ -1037,12 +1037,26 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
   const [budget, setBudget]           = useState('0.10')
   const [deadline, setDeadline]       = useState('24')
   const [submitting, setSub]          = useState(false)
+  const [demoLoading, setDemoLoading] = useState<'governed' | 'slash' | null>(null)
   const [result, setResult]           = useState<TaskRecord | null>(null)
   const [error, setError]             = useState('')
   const [driveFiles, setDriveFiles]   = useState<DriveFilePayload[]>([])
   const [gmailThreads, setGmailThreads] = useState<GmailThreadPayload[]>([])
   const [slackMessages, setSlackMessages] = useState<SlackMessagePayload[]>([])
   const [governanceMode, setGovernanceMode] = useState<'standard' | 'swarms_demo' | 'slash_demo'>('standard')
+
+  const launchDemo = async (mode: 'governed' | 'slash') => {
+    setDemoLoading(mode); setError('')
+    try {
+      const res  = await fetch(`${API}/api/demo/${mode}`, { method: 'POST' })
+      const data = await res.json()
+      onTaskPosted(data.task_id ?? '')
+    } catch {
+      setError('Demo launch failed — is the backend running?')
+    } finally {
+      setDemoLoading(null)
+    }
+  }
 
   // Web3 wallet takes precedence over Circle DCW for task attribution
   const employerAddress = localStorage.getItem('brewing_web3_wallet')
@@ -1094,6 +1108,58 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
           }
         </p>
       </div>
+
+      {/* Quick Demo Launchers */}
+      {!preselectedAgent && (
+        <div className="border border-purple-500/20 rounded-xl p-4 bg-purple-500/[0.03] flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-mono text-[9px] text-purple-400 tracking-widest uppercase">Governance Demos</div>
+              <p className="font-mono text-[10px] text-arc-muted mt-0.5">
+                One-click: Director → RiskAnalyst → Auditor → Settlement on Arc
+              </p>
+            </div>
+            <span className="font-mono text-[9px] text-arc-muted border border-arc-border/40 rounded px-1.5 py-0.5">
+              0.10 USDC
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => launchDemo('governed')}
+              disabled={demoLoading !== null}
+              className={`flex flex-col gap-0.5 px-3 py-2.5 rounded-lg border font-mono text-left transition-all ${
+                demoLoading === 'governed'
+                  ? 'border-arc-green/30 bg-arc-green/5 cursor-wait'
+                  : 'border-arc-green/30 hover:border-arc-green hover:bg-arc-green/5'
+              }`}
+            >
+              <span className="text-arc-green text-[11px] font-semibold">
+                {demoLoading === 'governed' ? '⟳ Launching…' : '▶ Governed Demo'}
+              </span>
+              <span className="text-arc-muted text-[9px]">Audit PASS → USDC settled</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => launchDemo('slash')}
+              disabled={demoLoading !== null}
+              className={`flex flex-col gap-0.5 px-3 py-2.5 rounded-lg border font-mono text-left transition-all ${
+                demoLoading === 'slash'
+                  ? 'border-red-500/40 bg-red-500/10 cursor-wait'
+                  : 'border-red-500/30 hover:border-red-500 hover:bg-red-500/10'
+              }`}
+            >
+              <span className="text-red-400 text-[11px] font-semibold">
+                {demoLoading === 'slash' ? '⟳ Launching…' : '✗ Slash Demo'}
+              </span>
+              <span className="text-red-400/50 text-[9px]">Audit SLASH → USDC refunded</span>
+            </button>
+          </div>
+          <div className="font-mono text-[9px] text-arc-muted">
+            Pipeline: <span className="text-arc-amber">Director</span> → <span className="text-blue-400">RiskAnalyst</span> → <span className="text-purple-400">Auditor</span> → <span className="text-arc-green">Settlement</span>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={submit} className="flex flex-col gap-5">
         {/* Task description */}
@@ -1288,23 +1354,31 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
 // ── Tab 3: Active Jobs ────────────────────────────────────────────────────────
 
 interface StreamEvent {
-  type:       string
-  agent?:     string
-  message?:   string
-  text?:      string
-  reason?:    string
-  pipeline?:  boolean
+  type:               string
+  agent?:             string
+  message?:           string
+  text?:              string
+  reason?:            string
+  pipeline?:          boolean
   // governance fields
-  stage?:     string
-  verdict?:   'PASS' | 'SLASH'
-  checks?:    Record<string, unknown>
-  tx?:        string
-  job_id?:    number
-  slash_tx?:  string
-  reputation?: number
-  slashed?:   boolean
-  settle_tx?: string
-  gov_log?:   GovernanceLogEntry[]
+  stage?:             string
+  verdict?:           'PASS' | 'SLASH'
+  checks?:            Record<string, unknown>
+  checks_count?:      number
+  checks_passed?:     number
+  tx?:                string
+  job_id?:            number
+  slash_tx?:          string
+  reputation?:        number
+  reputation_before?: number
+  reputation_after?:  number
+  slashed?:           boolean
+  settle_tx?:         string
+  sla_elapsed?:       number
+  sla_seconds?:       number
+  amount_usdc?:       number
+  gov_log?:           GovernanceLogEntry[]
+  summary?:           GovernanceSummary
 }
 
 interface GovernanceLogEntry {
@@ -1313,33 +1387,171 @@ interface GovernanceLogEntry {
   timestamp:  number
   ts_human:   string
   label:      string
+  severity:   string
   details:    Record<string, unknown>
+}
+
+interface GovernanceSummary {
+  outcome:          string
+  delegation_chain: string[]
+  was_slashed:      boolean
+  duration_s:       number | null
+  audit_verdict:    string | null
+  sla_elapsed_s:    number | null
 }
 
 // ── Governance helpers ────────────────────────────────────────────────────────
 
 const STAGE_COLORS: Record<string, string> = {
-  delegated:  'text-arc-amber',
-  escrowed:   'text-blue-400',
-  executing:  'text-arc-sub',
-  auditing:   'text-purple-400',
-  audited:    'text-purple-400',
-  settling:   'text-arc-green',
-  settled:    'text-arc-green',
-  slashing:   'text-red-400',
-  slashed:    'text-red-400',
+  delegated:          'text-arc-amber',
+  escrowed:           'text-blue-400',
+  executing:          'text-arc-sub',
+  auditing:           'text-purple-400',
+  audited:            'text-purple-400',
+  settling:           'text-arc-green',
+  settled:            'text-arc-green',
+  slashing:           'text-red-400',
+  slashed:            'text-red-400',
+  refunded:           'text-orange-400',
+  reputation_updated: 'text-arc-muted',
 }
 
 const STAGE_ICONS: Record<string, string> = {
-  delegated: '→',
-  escrowed:  '🔒',
-  executing: '⟳',
-  auditing:  '◈',
-  audited:   '◈',
-  settling:  '✓',
-  settled:   '✓',
-  slashing:  '✗',
-  slashed:   '✗',
+  delegated:          '→',
+  escrowed:           '🔒',
+  executing:          '⟳',
+  auditing:           '◈',
+  audited:            '◈',
+  settling:           '✓',
+  settled:            '✓',
+  slashing:           '✗',
+  slashed:            '✗',
+  refunded:           '↩',
+  reputation_updated: '△',
+}
+
+// ── Workflow step definitions ─────────────────────────────────────────────────
+
+const WORKFLOW_STEPS = [
+  { key: 'escrowed',  label: 'Escrow',     agent: 'Settlement',  color: 'text-blue-400',   border: 'border-blue-400/40'   },
+  { key: 'delegated', label: 'Director',   agent: 'Director',    color: 'text-arc-amber',  border: 'border-arc-amber/40'  },
+  { key: 'executing', label: 'RiskAnalyst',agent: 'RiskAnalyst', color: 'text-blue-400',   border: 'border-blue-400/40'   },
+  { key: 'auditing',  label: 'Auditor',    agent: 'Auditor',     color: 'text-purple-400', border: 'border-purple-400/40' },
+  { key: 'settled',   label: 'Settlement', agent: 'Settlement',  color: 'text-arc-green',  border: 'border-arc-green/40'  },
+]
+
+function WorkflowStepIndicator({ events, slashed }: { events: StreamEvent[]; slashed: boolean }) {
+  const stagesSeen = new Set(events.map(e => e.stage ?? e.type))
+  const isDone     = events.some(e => e.type === 'done')
+
+  return (
+    <div className="flex items-center gap-0 overflow-x-auto pb-1">
+      {WORKFLOW_STEPS.map((step, i) => {
+        const reached  = stagesSeen.has(step.key)
+        const isSlash  = slashed && step.key === 'settled'
+        const isCurrent= reached && !isDone && i === WORKFLOW_STEPS.findLastIndex(s => stagesSeen.has(s.key))
+        return (
+          <div key={step.key} className="flex items-center flex-shrink-0">
+            <div className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border transition-all ${
+              isSlash   ? 'border-red-500/40 bg-red-500/10' :
+              reached   ? `${step.border} bg-white/5` :
+              'border-arc-border/30 opacity-30'
+            }`}>
+              <span className={`text-[9px] font-semibold ${
+                isSlash  ? 'text-red-400' :
+                reached  ? step.color : 'text-arc-muted'
+              }`}>
+                {isSlash ? '✗' : reached ? (isDone || i < WORKFLOW_STEPS.findLastIndex(s => stagesSeen.has(s.key))) ? '✓' : '⟳' : '○'}
+              </span>
+              <span className={`text-[9px] whitespace-nowrap ${
+                isSlash ? 'text-red-400/80' : reached ? step.color : 'text-arc-muted'
+              }`}>
+                {isSlash ? 'Slashed' : step.label}
+              </span>
+              {isCurrent && !isDone && (
+                <span className={`w-1 h-1 rounded-full animate-pulse mt-0.5 ${
+                  step.key === 'auditing' ? 'bg-purple-400' : 'bg-arc-amber'
+                }`} />
+              )}
+            </div>
+            {i < WORKFLOW_STEPS.length - 1 && (
+              <span className={`text-[10px] px-1 flex-shrink-0 ${
+                stagesSeen.has(WORKFLOW_STEPS[i + 1].key) ? 'text-arc-muted' : 'text-arc-border/40'
+              }`}>→</span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function AuditChecksDetail({ checks, verdict, checksCount, checksPassed, slaElapsed, slaSeconds }: {
+  checks:        Record<string, unknown>
+  verdict:       'PASS' | 'SLASH'
+  checksCount?:  number
+  checksPassed?: number
+  slaElapsed?:   number
+  slaSeconds?:   number
+}) {
+  const CHECK_LABELS: Record<string, string> = {
+    forced_slash:             'Force slash (demo)',
+    sla_met:                  'SLA compliance',
+    non_empty:                'Output non-empty',
+    structured_output:        'Structured JSON',
+    required_fields_present:  'Required fields',
+    valid_risk_score:         'Risk score range',
+    reasoning_depth:          'Reasoning depth',
+    audit_passed:             'Final verdict',
+    llm_quality_check:        'LLM quality check',
+    elapsed_s:                'Elapsed time',
+    sla_limit_s:              'SLA limit',
+  }
+  const displayChecks = Object.entries(checks).filter(([k]) =>
+    !['elapsed_s', 'sla_limit_s'].includes(k)
+  )
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-purple-400 font-semibold text-[11px]">◈ Auditor</span>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${
+          verdict === 'PASS'
+            ? 'bg-arc-green/10 text-arc-green border-arc-green/30'
+            : 'bg-red-500/10 text-red-400 border-red-500/30'
+        }`}>{verdict}</span>
+        {checksCount !== undefined && (
+          <span className="text-[9px] text-arc-muted">
+            {checksPassed ?? '?'}/{checksCount} checks passed
+          </span>
+        )}
+        {slaElapsed !== undefined && (
+          <span className={`text-[9px] px-1.5 py-0.5 rounded border ${
+            slaSeconds && slaElapsed <= slaSeconds
+              ? 'text-arc-green/70 border-arc-green/20'
+              : 'text-red-400/70 border-red-500/20'
+          }`}>
+            SLA: {slaElapsed}s / {slaSeconds}s
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 ml-4 mt-0.5">
+        {displayChecks.map(([k, v]) => {
+          const isPass = v === true || v === 'PASS'
+          const isFail = v === false || v === 'SLASH'
+          return (
+            <div key={k} className="flex items-center gap-1.5">
+              <span className={`text-[9px] flex-shrink-0 ${isPass ? 'text-arc-green' : isFail ? 'text-red-400' : 'text-arc-muted'}`}>
+                {isPass ? '✓' : isFail ? '✗' : '·'}
+              </span>
+              <span className={`text-[9px] ${isPass ? 'text-arc-green/70' : isFail ? 'text-red-400/70' : 'text-arc-muted'}`}>
+                {CHECK_LABELS[k] ?? k}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 function GovernancePanel({ events, delegationChain, slashed }: {
@@ -1347,121 +1559,142 @@ function GovernancePanel({ events, delegationChain, slashed }: {
   delegationChain: string[]
   slashed:         boolean
 }) {
-  const govEvents = events.filter(e => ['governance', 'audited', 'slashed'].includes(e.type))
+  const govEvents  = events.filter(e => ['governance', 'audited', 'slashed'].includes(e.type))
+  const auditEvent = events.find(e => e.type === 'audited')
+  const slashEvent = events.find(e => e.type === 'slashed')
+  const doneEvent  = events.find(e => e.type === 'done')
+  const isDone     = !!doneEvent
+
   if (govEvents.length === 0 && delegationChain.length === 0) return null
 
   return (
     <div className={`border rounded-xl p-4 flex flex-col gap-3 font-mono text-xs ${
-      slashed ? 'border-red-500/30 bg-red-500/5' : 'border-purple-500/20 bg-purple-500/5'
+      slashed ? 'border-red-500/30 bg-red-500/[0.04]' : 'border-purple-500/20 bg-purple-500/[0.03]'
     }`}>
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-widest text-purple-400">Governance Audit Trail</span>
-        {slashed && (
-          <span className="text-[10px] px-2 py-0.5 rounded border border-red-500/40 text-red-400 font-semibold">
-            SLASHED
-          </span>
-        )}
-        {!slashed && govEvents.length > 0 && (
-          <span className="text-[10px] px-2 py-0.5 rounded border border-arc-green/30 text-arc-green">
-            GOVERNED
+
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-widest text-purple-400">Governance Audit Trail</span>
+          {isDone && !slashed && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded border border-arc-green/30 text-arc-green">SETTLED</span>
+          )}
+          {slashed && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded border border-red-500/40 text-red-400 font-bold">SLASHED</span>
+          )}
+          {!isDone && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded border border-arc-amber/30 text-arc-amber animate-pulse">LIVE</span>
+          )}
+        </div>
+        {doneEvent?.summary?.duration_s != null && (
+          <span className="text-[9px] text-arc-muted">
+            {doneEvent.summary.duration_s}s end-to-end
           </span>
         )}
       </div>
 
+      {/* Workflow step indicator */}
+      <WorkflowStepIndicator events={events} slashed={slashed} />
+
       {/* Delegation chain */}
       {delegationChain.length > 0 && (
         <div className="flex flex-col gap-1">
-          <div className="text-[9px] uppercase tracking-widest text-arc-muted">Delegation Chain</div>
+          <div className="text-[9px] uppercase tracking-widest text-arc-muted">Agent Chain</div>
           <div className="flex items-center gap-1 flex-wrap">
-            {delegationChain.map((agent, i) => (
-              <span key={agent} className="flex items-center gap-1">
-                <span className="text-[10px] px-1.5 py-0.5 rounded border border-arc-border text-arc-sub">{agent}</span>
-                {i < delegationChain.length - 1 && <span className="text-arc-muted">→</span>}
-              </span>
-            ))}
+            {delegationChain.map((agent, i) => {
+              const AGENT_BADGE: Record<string, string> = {
+                Director:   'border-arc-amber/40 text-arc-amber',
+                RiskAnalyst:'border-blue-400/40 text-blue-400',
+                Auditor:    'border-purple-400/40 text-purple-400',
+                Settlement: 'border-arc-green/40 text-arc-green',
+              }
+              return (
+                <span key={agent} className="flex items-center gap-1">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded border ${AGENT_BADGE[agent] ?? 'border-arc-border text-arc-sub'}`}>
+                    {agent}
+                  </span>
+                  {i < delegationChain.length - 1 && <span className="text-arc-muted/50">→</span>}
+                </span>
+              )
+            })}
           </div>
         </div>
       )}
 
-      {/* Audit trail events */}
-      <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
-        {govEvents.map((ev, i) => {
-          if (ev.type === 'audited') {
-            return (
-              <div key={i} className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-purple-400 font-semibold">◈ Auditor</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                    ev.verdict === 'PASS'
-                      ? 'bg-arc-green/10 text-arc-green border border-arc-green/30'
-                      : 'bg-red-500/10 text-red-400 border border-red-500/30'
-                  }`}>
-                    {ev.verdict}
-                  </span>
-                  <span className="text-arc-muted text-[10px]">{ev.reason}</span>
-                </div>
-                {ev.checks && (
-                  <div className="flex flex-wrap gap-1 ml-4">
-                    {Object.entries(ev.checks).map(([k, v]) => (
-                      <span key={k} className={`text-[9px] px-1 rounded ${
-                        v === true ? 'text-arc-green/70' :
-                        v === false ? 'text-red-400/70' : 'text-arc-muted'
-                      }`}>
-                        {k}: {String(v)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          }
-          if (ev.type === 'slashed') {
-            return (
-              <div key={i} className="flex flex-col gap-1 border border-red-500/20 rounded p-2 bg-red-500/5">
-                <div className="flex items-center gap-2">
-                  <span className="text-red-400 font-semibold">✗ SLASH TRIGGERED</span>
-                  <span className="text-red-300/70 text-[10px]">Job #{ev.job_id}</span>
-                </div>
-                <div className="text-red-300/60 text-[10px]">{ev.reason}</div>
-                {ev.slash_tx && (
-                  <a
-                    href={`${EXPLORER}/tx/${ev.slash_tx}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-red-400/70 hover:text-red-400 text-[10px] underline"
-                  >
-                    Slash TX: {ev.slash_tx.slice(0, 18)}… ↗
-                  </a>
-                )}
-                <div className="text-red-300/50 text-[10px]">
-                  Reputation penalty applied. USDC returned to employer.
-                </div>
-              </div>
-            )
-          }
-          const stageKey = ev.stage ?? ''
-          return (
-            <div key={i} className="flex items-start gap-2">
-              <span className={`flex-shrink-0 ${STAGE_COLORS[stageKey] ?? 'text-arc-muted'}`}>
-                {STAGE_ICONS[stageKey] ?? '·'}
+      {/* Audit verdict (expanded) */}
+      {auditEvent && auditEvent.checks && (
+        <div className={`rounded-lg p-2.5 border ${
+          auditEvent.verdict === 'PASS'
+            ? 'border-arc-green/20 bg-arc-green/5'
+            : 'border-red-500/20 bg-red-500/5'
+        }`}>
+          <AuditChecksDetail
+            checks       = {auditEvent.checks}
+            verdict      = {auditEvent.verdict!}
+            checksCount  = {auditEvent.checks_count}
+            checksPassed = {auditEvent.checks_passed}
+            slaElapsed   = {auditEvent.sla_elapsed}
+            slaSeconds   = {auditEvent.sla_seconds}
+          />
+        </div>
+      )}
+
+      {/* Slash event card */}
+      {slashEvent && (
+        <div className="flex flex-col gap-1.5 border border-red-500/30 rounded-lg p-3 bg-red-500/[0.06]">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-red-400 font-bold">✗ SLASH EXECUTED</span>
+            <span className="text-red-300/70 text-[10px]">Job #{slashEvent.job_id}</span>
+            {slashEvent.amount_usdc != null && (
+              <span className="text-red-300/60 text-[10px]">{slashEvent.amount_usdc?.toFixed(3)} USDC returned</span>
+            )}
+          </div>
+          <div className="text-red-300/70 text-[10px]">{slashEvent.reason}</div>
+          {slashEvent.reputation_before != null && slashEvent.reputation_after != null && (
+            <div className="flex items-center gap-1.5 text-[9px]">
+              <span className="text-arc-muted">Reputation:</span>
+              <span className="text-arc-sub">{(slashEvent.reputation_before / 1000).toFixed(1)}</span>
+              <span className="text-arc-muted">→</span>
+              <span className="text-red-400">{(slashEvent.reputation_after / 1000).toFixed(1)}</span>
+              <span className="text-red-400/70">
+                ({((slashEvent.reputation_after - slashEvent.reputation_before) / 1000).toFixed(1)})
               </span>
-              <span className="text-arc-muted text-[10px] font-semibold w-16 flex-shrink-0">
-                {ev.agent}
-              </span>
-              <span className="text-arc-sub">{ev.message}</span>
-              {ev.tx && (
-                <a
-                  href={`${EXPLORER}/tx/${ev.tx}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-arc-muted hover:text-arc-green text-[10px] ml-auto flex-shrink-0"
-                >
-                  ↗
-                </a>
-              )}
             </div>
-          )
-        })}
+          )}
+          {slashEvent.slash_tx && (
+            <a
+              href={`${EXPLORER}/tx/${slashEvent.slash_tx}`}
+              target="_blank" rel="noreferrer"
+              className="text-red-400/60 hover:text-red-400 text-[10px] underline w-fit"
+            >
+              Slash TX: {slashEvent.slash_tx.slice(0, 20)}… ↗
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Governance event timeline */}
+      <div className="flex flex-col gap-1 max-h-44 overflow-y-auto">
+        {govEvents
+          .filter(e => e.type === 'governance')
+          .map((ev, i) => {
+            const stageKey = ev.stage ?? ''
+            return (
+              <div key={i} className="flex items-start gap-2 min-h-[1.4rem]">
+                <span className={`flex-shrink-0 w-3 text-center ${STAGE_COLORS[stageKey] ?? 'text-arc-muted'}`}>
+                  {STAGE_ICONS[stageKey] ?? '·'}
+                </span>
+                <span className={`text-[9px] font-semibold flex-shrink-0 w-[4.5rem] ${STAGE_COLORS[stageKey] ?? 'text-arc-muted'}`}>
+                  {ev.agent}
+                </span>
+                <span className="text-arc-sub/80 text-[10px] leading-snug">{ev.message}</span>
+                {ev.tx && (
+                  <a href={`${EXPLORER}/tx/${ev.tx}`} target="_blank" rel="noreferrer"
+                    className="text-arc-muted hover:text-arc-green text-[10px] ml-auto flex-shrink-0">↗</a>
+                )}
+              </div>
+            )
+          })}
       </div>
     </div>
   )
@@ -1486,8 +1719,8 @@ function LiveStreamPanel({ taskId, onDone }: { taskId: string; onDone: () => voi
       }
       if (ev.type === 'text_start') return
 
-      // Track delegation chain from governance events
-      if ((ev.type === 'governance' || ev.type === 'audited') && ev.agent) {
+      // Track delegation chain — any event with an agent name participates
+      if (ev.agent && !['ping', 'text_chunk', 'text_start'].includes(ev.type)) {
         setDelegationChain(prev =>
           prev.includes(ev.agent!) ? prev : [...prev, ev.agent!]
         )
@@ -1513,8 +1746,9 @@ function LiveStreamPanel({ taskId, onDone }: { taskId: string; onDone: () => voi
     MarketResearchBot: 'text-arc-green', SentimentBot: 'text-blue-400', PortfolioBot: 'text-emerald-400',
   }
 
-  // Separate governance events from execution events for dual-panel display
-  const execEvents = events.filter(e => !['governance'].includes(e.type))
+  // Execution feed: all non-governance, non-internal events
+  // Governance panel: parallel view with full audit trail
+  const execEvents   = events.filter(e => !['governance', 'ping', 'text_chunk', 'text_start'].includes(e.type))
   const hasGovEvents = events.some(e => ['governance', 'audited', 'slashed'].includes(e.type))
 
   return (
@@ -1649,9 +1883,15 @@ function ActiveJobsTab({ liveTaskId = '', onStreamDone = () => {} }: { liveTaskI
           ? task.description.slice(0, 120) + '…'
           : task.description
 
+        // Detect governed tasks by description heuristic or status
+        const isSlashedTask  = task.status === 'refunded'
+        const isGoverned     = (task.subtasks ?? []).length === 0 && task.status !== 'pending'
+
         return (
           <div key={task.task_id} className={`border rounded-xl bg-arc-surface overflow-hidden transition-colors ${
-            isOpen ? 'border-arc-green/30' : 'border-arc-border hover:border-arc-border/80'
+            isSlashedTask ? 'border-red-500/20' :
+            isOpen        ? 'border-arc-green/30' :
+            'border-arc-border hover:border-arc-border/80'
           }`}>
             {/* Clickable header — always visible */}
             <button
@@ -1664,8 +1904,17 @@ function ActiveJobsTab({ liveTaskId = '', onStreamDone = () => {} }: { liveTaskI
 
               {/* Left: ID + agents + snippet */}
               <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-mono text-[10px] text-arc-muted flex-shrink-0">#{task.task_id}</span>
+                <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                  <span className="font-mono text-[10px] text-arc-muted flex-shrink-0">#{task.task_id.slice(0, 8)}</span>
+                  {isGoverned && (task.subtasks ?? []).length === 0 && (
+                    <span className={`font-mono text-[9px] px-1.5 py-0.5 rounded border flex-shrink-0 ${
+                      isSlashedTask
+                        ? 'border-red-500/30 text-red-400/80'
+                        : 'border-purple-500/30 text-purple-400/80'
+                    }`}>
+                      {isSlashedTask ? '✗ SLASHED' : '◈ GOVERNED'}
+                    </span>
+                  )}
                   {(task.subtasks ?? []).length > 0 && (
                     <span className="font-mono text-[10px] text-arc-sub truncate">
                       {(task.subtasks ?? []).map(s => s.agent_name).join(' · ')}
@@ -1736,9 +1985,16 @@ function ActiveJobsTab({ liveTaskId = '', onStreamDone = () => {} }: { liveTaskI
                 )}
 
                 {task.status === 'refunded' && (
-                  <div className="border border-red-500/20 rounded-lg p-4 bg-red-500/5">
-                    <div className="font-mono text-[9px] text-red-400 tracking-widest uppercase mb-1">SLASHED — REFUNDED</div>
-                    <p className="font-mono text-[11px] text-arc-sub">Agent missed SLA deadline. {task.budget_usdc.toFixed(3)} USDC returned to employer.</p>
+                  <div className="border border-red-500/30 rounded-lg p-4 bg-red-500/[0.05] flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[9px] text-red-400 tracking-widest uppercase">✗ Governance Slash — Refunded</span>
+                    </div>
+                    <p className="font-mono text-[11px] text-red-300/70">
+                      Auditor rejected the execution output. {task.budget_usdc.toFixed(3)} USDC returned to employer. Agent reputation penalised.
+                    </p>
+                    <div className="font-mono text-[9px] text-arc-muted">
+                      Governance trail: Director → RiskAnalyst → Auditor (SLASH) → Settlement
+                    </div>
                   </div>
                 )}
               </div>

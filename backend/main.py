@@ -44,13 +44,25 @@ async def _emit(task_id: str, event_type: str, **kwargs):
 # ── App lifecycle ─────────────────────────────────────────────────────────────
 
 client: BrewingArcClient | None = None
+_swarms_warmed: bool = False   # set True once Swarms module has been imported + instantiated
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global client
+    global client, _swarms_warmed
     client = BrewingArcClient()
     _seed_registry()
+    # Pre-warm Swarms imports so the first demo request has no cold-start delay.
+    # We instantiate a throwaway orchestrator to trigger all Python module loads.
+    try:
+        from backend.swarms_workflow import BrewingSwarmOrchestrator
+        _api_key = os.getenv("ANTHROPIC_API_KEY", "")
+        if _api_key:
+            _warmup = BrewingSwarmOrchestrator(api_key=_api_key)
+            del _warmup
+            _swarms_warmed = True
+    except Exception:
+        pass
     yield
 
 
@@ -313,17 +325,18 @@ async def _smart_route(description: str, agents: list, ai) -> tuple[str | None, 
 async def _run_governed_pipeline(task, req, employer_addr: str):
     """
     Swarms-native governed pipeline.
-    Director -> Risk Analyst (via BrewingSwarmOrchestrator) -> Auditor -> Settlement.
-    Supports deterministic slash_demo mode.
+    Director -> Risk Analyst (Swarms SequentialWorkflow) -> Auditor -> Settlement.
+
+    Full governance audit trail recorded at every lifecycle stage.
+    Deterministic slash available via governance_mode="slash_demo".
     """
-    import anthropic as _anthropic
-    tid         = task.task_id
-    api_key     = os.getenv("ANTHROPIC_API_KEY", "")
+    tid          = task.task_id
+    api_key      = os.getenv("ANTHROPIC_API_KEY", "")
     employer_key = os.getenv("ARC_PRIVATE_KEY", "")
-    gov_log     = get_log(tid)
-    auditor     = AuditorAgent(api_key=api_key)
-    force_slash = (req.governance_mode == "slash_demo")
-    started_at  = time.time()
+    gov_log      = get_log(tid)
+    auditor      = AuditorAgent(api_key=api_key)
+    force_slash  = (req.governance_mode == "slash_demo")
+    started_at   = time.time()
 
     try:
         from backend.swarms_workflow import BrewingSwarmOrchestrator
@@ -334,30 +347,42 @@ async def _run_governed_pipeline(task, req, employer_addr: str):
 
     try:
         by_name      = {a.name: a for a in registry.all()}
-        worker_agent = by_name.get("RiskAnalyst") or by_name.get("PortfolioBot") or list(by_name.values())[0]
+        worker_agent = (
+            by_name.get("RiskAnalyst")
+            or by_name.get("PortfolioBot")
+            or list(by_name.values())[0]
+        )
 
-        # ── Step 1: Lock escrow ────────────────────────────────────────────────
+        # ── Step 1: Lock escrow ───────────────────────────────────────────────
         gov_log.record("escrowed", "Settlement", amount_usdc=req.budget_usdc)
         await _emit(tid, "governance", agent="Settlement",
-                    message=f"Locking {req.budget_usdc} USDC in escrow on Arc…",
-                    stage="escrowed")
+                    stage="escrowed",
+                    message=f"Locking {req.budget_usdc:.3f} USDC in Arc escrow…")
 
         escrow = await client.post_job(
             worker          = worker_agent.payment_addr,
             usdc_amount     = req.budget_usdc,
             timeout_seconds = req.deadline_hours * 3600,
         )
-        job_id = escrow["job_id"]
+        job_id   = escrow["job_id"]
+        create_tx = escrow["create_tx"]
+
+        gov_log.record("escrowed", "Settlement",
+                       job_id=job_id, tx=create_tx, amount_usdc=req.budget_usdc)
         await _emit(tid, "governance", agent="Settlement",
-                    message=f"Escrow locked. Job #{job_id} on Arc. TX: {escrow['create_tx'][:16]}…",
-                    stage="escrowed", tx=escrow["create_tx"])
+                    stage="escrowed",
+                    message=f"Escrow confirmed. Job #{job_id} · TX: {create_tx[:18]}…",
+                    tx=create_tx, job_id=job_id)
 
-        # ── Step 2: Director + Risk Analyst (Swarms SequentialWorkflow) ────────
-        gov_log.record("delegated", "Director", task=req.description)
+        # ── Step 2: Director delegates (governance record) ────────────────────
+        gov_log.record("delegated", "Director",
+                       task_brief=req.description[:200],
+                       workflow="SequentialWorkflow: Director → RiskAnalyst")
         await _emit(tid, "governance", agent="Director",
-                    message="Decomposing objective and delegating to Risk Analyst…",
-                    stage="delegated")
+                    stage="delegated",
+                    message="Received objective — decomposing into structured brief for RiskAnalyst…")
 
+        # ── Step 3: Director + Risk Analyst via Swarms ────────────────────────
         async def _governance_emit(event_type: str, kwargs: dict):
             await _emit(tid, event_type, **kwargs)
 
@@ -366,74 +391,133 @@ async def _run_governed_pipeline(task, req, employer_addr: str):
             emit             = _governance_emit,
         )
 
-        gov_log.record("executing", "RiskAnalyst", output_len=len(analyst_output))
+        gov_log.record("executing", "RiskAnalyst",
+                       output_len=len(analyst_output),
+                       director_brief_len=len(director_output))
+        await _emit(tid, "governance", agent="RiskAnalyst",
+                    stage="executing",
+                    message=f"Risk analysis complete ({len(analyst_output)} chars)")
+
+        # Stream analyst output to frontend
         await _emit(tid, "text_start", agent="RiskAnalyst")
-        for i in range(0, len(analyst_output), 80):
-            await _emit(tid, "text_chunk", agent="RiskAnalyst", text=analyst_output[i:i+80])
+        chunk = 80
+        for i in range(0, len(analyst_output), chunk):
+            await _emit(tid, "text_chunk", agent="RiskAnalyst", text=analyst_output[i:i+chunk])
             await asyncio.sleep(0.01)
 
-        # ── Step 3: Auditor validates ──────────────────────────────────────────
-        gov_log.record("audited", "Auditor", force_slash=force_slash)
+        # ── Step 4: Auditor validates ─────────────────────────────────────────
+        sla_seconds = req.deadline_hours * 3600
+        gov_log.record("auditing", "Auditor",
+                       force_slash=force_slash,
+                       sla_seconds=sla_seconds)
         await _emit(tid, "governance", agent="Auditor",
-                    message="Validating output against governance constraints…",
-                    stage="auditing")
+                    stage="auditing",
+                    message="Starting governance validation (7 checks)…")
 
         audit = auditor.validate(
             task_description = req.description,
             output           = analyst_output,
             started_at       = started_at,
-            sla_seconds      = req.deadline_hours * 3600,
+            sla_seconds      = sla_seconds,
             force_slash      = force_slash,
         )
 
+        sla_elapsed = round(time.time() - started_at, 1)
+
+        # Record full audit details in the governance log
+        gov_log.record("audited", "Auditor",
+                       verdict=audit.verdict,
+                       reason=audit.reason,
+                       checks=audit.checks,
+                       sla_elapsed_s=sla_elapsed,
+                       sla_seconds=sla_seconds,
+                       force_slash=force_slash)
+
         await _emit(tid, "audited",
-                    agent   = "Auditor",
-                    verdict = audit.verdict,
-                    reason  = audit.reason,
-                    checks  = audit.checks)
+                    agent        = "Auditor",
+                    verdict      = audit.verdict,
+                    reason       = audit.reason,
+                    checks       = audit.checks,
+                    sla_elapsed  = sla_elapsed,
+                    sla_seconds  = sla_seconds,
+                    checks_count = len(audit.checks),
+                    checks_passed= sum(1 for v in audit.checks.values() if v is True))
 
-        # ── Step 4a: SLASH path ────────────────────────────────────────────────
+        # ── Step 5a: SLASH path ───────────────────────────────────────────────
         if audit.verdict == "SLASH":
-            gov_log.record("slashed", "Settlement",
-                           reason=audit.reason, job_id=job_id)
-
             await _emit(tid, "governance", agent="Settlement",
-                        message="Audit failed — triggering slash…",
-                        stage="slashing")
+                        stage="slashing",
+                        message=f"Audit FAILED — triggering slash on Job #{job_id}…")
 
             try:
                 slash_tx = await client.slash_job(job_id)
             except Exception:
-                slash_tx = escrow["create_tx"]  # fallback for demo
+                slash_tx = create_tx   # deterministic fallback for demo
 
+            rep_before = worker_agent.reputation
             registry.record_slash(worker_agent.agent_id)
+            rep_after  = worker_agent.reputation
+
+            gov_log.record("slashed", "Settlement",
+                           reason=audit.reason, job_id=job_id,
+                           slash_tx=slash_tx,
+                           amount_usdc=req.budget_usdc)
+            gov_log.record("reputation_updated", "Settlement",
+                           agent_id=worker_agent.agent_id,
+                           agent_name=worker_agent.name,
+                           before=rep_before, after=rep_after,
+                           delta=round(rep_after - rep_before, 2))
 
             await _emit(tid, "slashed",
-                        agent      = "Settlement",
-                        job_id     = job_id,
-                        reason     = audit.reason,
-                        slash_tx   = slash_tx,
-                        reputation = worker_agent.reputation,
-                        message    = f"Slashed. USDC returned to employer. Reputation penalised.")
+                        agent            = "Settlement",
+                        job_id           = job_id,
+                        reason           = audit.reason,
+                        slash_tx         = slash_tx,
+                        reputation       = rep_after,
+                        reputation_before= rep_before,
+                        reputation_after = rep_after,
+                        amount_usdc      = req.budget_usdc,
+                        message          = "SLASH executed — USDC returned to employer. Reputation penalised.")
+            await _emit(tid, "governance", agent="Settlement",
+                        stage="slashed",
+                        message=f"Reputation {rep_before} → {rep_after} (delta {round(rep_after - rep_before, 2)}). "
+                                f"Slash TX: {slash_tx[:18]}…",
+                        tx=slash_tx)
 
             task.status       = "refunded"
             task.completed_at = int(time.time())
             task_store.update(task)
-            await _emit(tid, "done", task_id=tid, slashed=True)
+            await _emit(tid, "done",
+                        task_id  = tid,
+                        slashed  = True,
+                        gov_log  = gov_log.to_dict(),
+                        summary  = gov_log.summary())
             return
 
-        # ── Step 4b: SETTLE path ───────────────────────────────────────────────
-        gov_log.record("settled", "Settlement", job_id=job_id)
+        # ── Step 5b: SETTLE path ──────────────────────────────────────────────
         await _emit(tid, "governance", agent="Settlement",
-                    message="Audit passed — releasing USDC to worker…",
-                    stage="settling")
+                    stage="settling",
+                    message=f"Audit PASSED — releasing {req.budget_usdc:.3f} USDC to {worker_agent.name}…")
 
         settle_tx = await client.complete_job(job_id)
+
+        rep_before = worker_agent.reputation
         registry.record_completion(worker_agent.agent_id)
+        rep_after  = worker_agent.reputation
+
+        gov_log.record("settled", "Settlement",
+                       job_id=job_id, tx=settle_tx, amount_usdc=req.budget_usdc)
+        gov_log.record("reputation_updated", "Settlement",
+                       agent_id=worker_agent.agent_id,
+                       agent_name=worker_agent.name,
+                       before=rep_before, after=rep_after,
+                       delta=round(rep_after - rep_before, 2))
 
         await _emit(tid, "governance", agent="Settlement",
-                    message=f"USDC settled. TX: {settle_tx[:16]}…",
-                    stage="settled", tx=settle_tx)
+                    stage="settled",
+                    message=f"Settled. TX: {settle_tx[:18]}… · "
+                            f"Reputation {rep_before} → {rep_after}",
+                    tx=settle_tx)
 
         if employer_key:
             receipt = sign_receipt(
@@ -457,9 +541,13 @@ async def _run_governed_pipeline(task, req, employer_addr: str):
                     task_id   = tid,
                     slashed   = False,
                     settle_tx = settle_tx,
-                    gov_log   = gov_log.to_dict())
+                    gov_log   = gov_log.to_dict(),
+                    summary   = gov_log.summary())
 
     except Exception as e:
+        sla_elapsed = round(time.time() - started_at, 1)
+        gov_log.record("refunded", "Settlement",
+                       error=str(e), sla_elapsed_s=sla_elapsed)
         task.status = "refunded"
         task_store.update(task)
         await _emit(tid, "error", message=str(e))
@@ -962,29 +1050,23 @@ async def verify_receipt(receipt_id: str):
 @app.get("/api/tasks/{task_id}/governance")
 async def get_governance_log(task_id: str):
     """Return the full governance audit trail for a task."""
-    from backend.governance import get_log as _get_log, all_logs
-    log = _get_log(task_id)
+    log = get_log(task_id)
     return {
         "task_id":          task_id,
         "delegation_chain": log.delegation_chain(),
         "was_slashed":      log.was_slashed(),
+        "outcome":          log.outcome(),
+        "duration_s":       log.duration_s(),
         "events":           log.to_dict(),
         "event_count":      len(log.all()),
+        "summary":          log.summary(),
     }
 
 @app.get("/api/governance/logs")
 async def get_all_governance_logs():
     """Return governance summaries for all tracked tasks."""
     from backend.governance import all_logs
-    return [
-        {
-            "task_id":          tid,
-            "delegation_chain": log.delegation_chain(),
-            "was_slashed":      log.was_slashed(),
-            "event_count":      len(log.all()),
-        }
-        for tid, log in all_logs().items()
-    ]
+    return [log.summary() for log in all_logs().values()]
 
 
 # ── Deterministic demo endpoints ───────────────────────────────────────────────
@@ -1007,69 +1089,61 @@ _DEMO_TASK_SLASH = (
 )
 
 
-@app.post("/api/demo/governed")
-async def demo_governed():
-    """
-    Launch a pre-canned governed execution demo.
-    Director -> Risk Analyst (Swarms) -> Auditor (PASS) -> Settlement.
-    Returns task_id; stream via /api/tasks/{task_id}/stream.
-    """
+def _make_demo_task(description: str, governance_mode: str) -> tuple:
+    """Create and register a demo task record. Returns (task, req, employer_addr)."""
     employer_addr = client.account.address
     task = task_store.create(
         employer_address = employer_addr,
-        employer_name    = "Demo Employer",
-        description      = _DEMO_TASK_GOVERNED,
+        employer_name    = "Brewing Demo",
+        description      = description,
         budget_usdc      = 0.10,
         deadline_hours   = 1,
     )
     task.status = "in_progress"
     task_store.update(task)
-
     req = PostTaskRequest(
-        description      = _DEMO_TASK_GOVERNED,
+        description      = description,
         budget_usdc      = 0.10,
         deadline_hours   = 1,
         employer_address = employer_addr,
-        governance_mode  = "swarms_demo",
+        governance_mode  = governance_mode,
     )
+    return task, req, employer_addr
+
+
+@app.post("/api/demo/governed")
+async def demo_governed():
+    """
+    Deterministic governed execution demo (PASS path).
+    Director -> RiskAnalyst (Swarms SequentialWorkflow) -> Auditor (PASS) -> Settlement.
+    Returns task_id; stream progress via GET /api/tasks/{task_id}/stream.
+    """
+    task, req, employer_addr = _make_demo_task(_DEMO_TASK_GOVERNED, "swarms_demo")
     asyncio.create_task(_run_governed_pipeline(task, req, employer_addr))
     return {
         "task_id":         task.task_id,
         "governance_mode": "swarms_demo",
+        "expected_outcome":"PASS — USDC settled on audit success",
+        "pipeline":        "Director → RiskAnalyst → Auditor → Settlement",
         "stream_url":      f"/api/tasks/{task.task_id}/stream",
-        "description":     _DEMO_TASK_GOVERNED[:80] + "…",
+        "governance_url":  f"/api/tasks/{task.task_id}/governance",
     }
 
 
 @app.post("/api/demo/slash")
 async def demo_slash():
     """
-    Launch a deterministic slash demo.
-    Director -> Risk Analyst (Swarms) -> Auditor (SLASH, forced) -> refund.
-    Returns task_id; stream via /api/tasks/{task_id}/stream.
+    Deterministic slash demo (SLASH path, force_slash=True).
+    Director -> RiskAnalyst (Swarms SequentialWorkflow) -> Auditor (forced SLASH) -> refund.
+    Returns task_id; stream progress via GET /api/tasks/{task_id}/stream.
     """
-    employer_addr = client.account.address
-    task = task_store.create(
-        employer_address = employer_addr,
-        employer_name    = "Demo Employer",
-        description      = _DEMO_TASK_SLASH,
-        budget_usdc      = 0.10,
-        deadline_hours   = 1,
-    )
-    task.status = "in_progress"
-    task_store.update(task)
-
-    req = PostTaskRequest(
-        description      = _DEMO_TASK_SLASH,
-        budget_usdc      = 0.10,
-        deadline_hours   = 1,
-        employer_address = employer_addr,
-        governance_mode  = "slash_demo",
-    )
+    task, req, employer_addr = _make_demo_task(_DEMO_TASK_SLASH, "slash_demo")
     asyncio.create_task(_run_governed_pipeline(task, req, employer_addr))
     return {
         "task_id":         task.task_id,
         "governance_mode": "slash_demo",
+        "expected_outcome":"SLASH — USDC returned to employer via governance enforcement",
+        "pipeline":        "Director → RiskAnalyst → Auditor (SLASH) → Refund",
         "stream_url":      f"/api/tasks/{task.task_id}/stream",
-        "description":     _DEMO_TASK_SLASH[:80] + "…",
+        "governance_url":  f"/api/tasks/{task.task_id}/governance",
     }
