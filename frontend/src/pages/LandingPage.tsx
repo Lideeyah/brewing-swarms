@@ -6,26 +6,28 @@ const API = import.meta.env.VITE_ARC_API_URL ?? 'http://localhost:8000'
 interface Stats { totalJobsCompleted: number; usdcSettled: number; activeAgents: number }
 
 // ── Live governance event stream ──────────────────────────────────────────────
+const N = 'rgba(255,255,255,0.45)'  // neutral event colour
+
 const STREAM_EVENTS = [
   { type: 'SETTLED',   task: 'task_a3f2b1', agent: 'RiskAnalyst', usdc: '0.100', dur: '7,834ms', color: '#10b981' },
-  { type: 'AUDITING',  task: 'task_c8d4e2', agent: 'Auditor',     usdc: '0.100', dur: '—',       color: '#a855f7' },
-  { type: 'ESCROWED',  task: 'task_f1a9b3', agent: 'Settlement',  usdc: '0.100', dur: '—',       color: '#60a5fa' },
+  { type: 'AUDITING',  task: 'task_c8d4e2', agent: 'Auditor',     usdc: '0.100', dur: '—',       color: N },
+  { type: 'ESCROWED',  task: 'task_f1a9b3', agent: 'Settlement',  usdc: '0.100', dur: '—',       color: N },
   { type: 'SLASHED',   task: 'task_d7c2a1', agent: 'Settlement',  usdc: '0.100', dur: '8,102ms', color: '#ef4444' },
-  { type: 'DELEGATED', task: 'task_e4f8c3', agent: 'Director',    usdc: '0.100', dur: '—',       color: '#f59e0b' },
-  { type: 'EXECUTING', task: 'task_b2d5e7', agent: 'RiskAnalyst', usdc: '0.100', dur: '—',       color: '#60a5fa' },
-  { type: 'AUDITED',   task: 'task_a1b4c7', agent: 'Auditor',     usdc: '0.100', dur: '—',       color: '#a855f7' },
+  { type: 'DELEGATED', task: 'task_e4f8c3', agent: 'Director',    usdc: '0.100', dur: '—',       color: N },
+  { type: 'EXECUTING', task: 'task_b2d5e7', agent: 'RiskAnalyst', usdc: '0.100', dur: '—',       color: N },
+  { type: 'AUDITED',   task: 'task_a1b4c7', agent: 'Auditor',     usdc: '0.100', dur: '—',       color: N },
   { type: 'SETTLED',   task: 'task_f3e2d1', agent: 'RiskAnalyst', usdc: '0.100', dur: '8,456ms', color: '#10b981' },
   { type: 'REP +0.1',  task: 'task_a3f2b1', agent: 'RiskAnalyst', usdc: '—',     dur: '—',       color: '#10b981' },
-  { type: 'ESCROWED',  task: 'task_b9c3d1', agent: 'Settlement',  usdc: '0.100', dur: '—',       color: '#60a5fa' },
+  { type: 'ESCROWED',  task: 'task_b9c3d1', agent: 'Settlement',  usdc: '0.100', dur: '—',       color: N },
 ]
 
 // ── Pipeline stages ───────────────────────────────────────────────────────────
 const PIPELINE = [
-  { label: 'ESCROW',       sub: 'Capital locked on-chain',   color: '#60a5fa', dim: 'rgba(96,165,250,0.1)'   },
-  { label: 'DIRECTOR',     sub: 'Brief structured',           color: '#f59e0b', dim: 'rgba(245,158,11,0.1)'   },
-  { label: 'RISK ANALYST', sub: 'Swarms workflow executed',   color: '#60a5fa', dim: 'rgba(96,165,250,0.1)'   },
-  { label: 'AUDITOR',      sub: '7-check governance gate',    color: '#a855f7', dim: 'rgba(168,85,247,0.1)'   },
-  { label: 'SETTLEMENT',   sub: 'USDC released or slashed',   color: '#10b981', dim: 'rgba(16,185,129,0.1)'   },
+  { label: 'ESCROW',       sub: 'Capital locked on-chain',   color: 'rgba(255,255,255,0.6)', dim: 'rgba(255,255,255,0.03)' },
+  { label: 'DIRECTOR',     sub: 'Brief structured',           color: 'rgba(255,255,255,0.6)', dim: 'rgba(255,255,255,0.03)' },
+  { label: 'RISK ANALYST', sub: 'Swarms workflow executed',   color: 'rgba(255,255,255,0.6)', dim: 'rgba(255,255,255,0.03)' },
+  { label: 'AUDITOR',      sub: '7-check governance gate',    color: 'rgba(255,255,255,0.6)', dim: 'rgba(255,255,255,0.03)' },
+  { label: 'SETTLEMENT',   sub: 'USDC released or slashed',   color: '#10b981',               dim: 'rgba(16,185,129,0.08)'  },
 ]
 
 // ── Operational agents ────────────────────────────────────────────────────────
@@ -33,13 +35,13 @@ const AGENTS = [
   {
     name:        'Risk Analyst',
     specialty:   'Governed Financial Intelligence',
-    status:      'EXECUTING',
-    statusColor: '#60a5fa',
+    status:      'ACTIVE',
+    statusColor: '#10b981',
     rep:         9.2,
     jobs:        847,
     earned:      '84.7',
     tags:        ['protocol analysis', 'treasury evaluation', 'risk scoring', 'governance-aware execution'],
-    accent:      '#60a5fa',
+    accent:      '#10b981',
   },
   {
     name:        'Director',
@@ -50,18 +52,18 @@ const AGENTS = [
     jobs:        1203,
     earned:      '120.3',
     tags:        ['task briefing', 'scope definition', 'governed delegation', 'workflow routing'],
-    accent:      '#f59e0b',
+    accent:      '#10b981',
   },
   {
     name:        'Auditor',
     specialty:   'Governance Validation',
-    status:      'AUDITING',
-    statusColor: '#a855f7',
+    status:      'ACTIVE',
+    statusColor: '#10b981',
     rep:         10.0,
     jobs:        847,
     earned:      '8.5',
     tags:        ['SLA compliance', '7-check audit', 'slash enforcement', 'reputation scoring'],
-    accent:      '#a855f7',
+    accent:      '#10b981',
   },
 ]
 
@@ -348,9 +350,9 @@ export default function LandingPage() {
             </div>
             <span style={{ color: 'rgba(255,255,255,0.35)' }}>·</span>
             <div className="flex items-center gap-2 rounded-full px-3 py-1.5"
-              style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.15)' }}>
-              <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ background: '#a855f7' }} />
-              <span className="font-mono text-[10px] tracking-widest" style={{ color: '#a855f7' }}>1 AUDITING</span>
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ background: 'rgba(255,255,255,0.5)' }} />
+              <span className="font-mono text-[10px] tracking-widest" style={{ color: 'rgba(255,255,255,0.55)' }}>1 AUDITING</span>
             </div>
           </div>
 
@@ -415,8 +417,8 @@ export default function LandingPage() {
                 <span className="font-mono text-[9px]" style={{ color: 'rgba(255,255,255,0.7)' }}>Arc Testnet</span>
               </div>
               <GovernanceStream />
-              <div className="flex items-center gap-4 font-mono text-[9px]" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                {[['#10b981','SETTLED'],['#a855f7','AUDITING'],['#ef4444','SLASHED'],['#f59e0b','DELEGATED'],['#60a5fa','EXECUTING']].map(([c,l]) => (
+              <div className="flex items-center gap-4 font-mono text-[9px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                {[['#10b981','SETTLED'],['rgba(255,255,255,0.4)','IN PROGRESS'],['#ef4444','SLASHED']].map(([c,l]) => (
                   <div key={l} className="flex items-center gap-1">
                     <span className="w-1 h-1 rounded-full" style={{ background: c as string }} />
                     <span>{l}</span>
@@ -443,7 +445,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-2">
             {PIPELINE.map((s, i) => (
               <div key={s.label} className="flex flex-col gap-1.5">
-                <span className="font-mono text-[9px] font-bold tracking-widest" style={{ color: s.color }}>
+                <span className="font-mono text-[9px] font-bold tracking-widest" style={{ color: s.label === 'SETTLEMENT' ? '#10b981' : 'rgba(255,255,255,0.35)' }}>
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 <span className="font-mono text-[11px] text-white font-semibold">{s.label}</span>

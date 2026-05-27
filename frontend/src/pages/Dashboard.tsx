@@ -587,7 +587,7 @@ function ResultActions({ content, taskId }: { content: string; taskId: string })
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, string> = {
     completed:   'bg-arc-green/10 text-arc-green border-arc-green/20',
-    in_progress: 'bg-arc-amber/10 text-arc-amber border-arc-amber/20',
+    in_progress: 'bg-arc-green/10 text-arc-green border-arc-green/20',
     refunded:    'bg-red-500/10 text-red-400 border-red-500/20',
     pending:     'border-arc-border text-arc-muted',
   }
@@ -629,7 +629,7 @@ function Countdown({ createdAt, deadlineHours }: { createdAt: number; deadlineHo
 
 function ReputationBar({ score }: { score: number }) {
   const pct = Math.min(100, score / 100)
-  const color = pct >= 70 ? 'bg-arc-green' : pct >= 40 ? 'bg-arc-amber' : 'bg-red-500'
+  const color = pct >= 70 ? 'bg-arc-green' : pct >= 40 ? 'bg-white/30' : 'bg-red-500'
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 h-1 bg-arc-border rounded-full overflow-hidden">
@@ -917,11 +917,11 @@ function MarketplaceTab({ onHire }: { onHire: (agentName: string) => void }) {
   )
 
   const PIPELINE_STEPS = [
-    { label: 'Escrow',      color: 'text-blue-400',    border: 'border-blue-400/30'    },
-    { label: 'Director',    color: 'text-arc-amber',   border: 'border-arc-amber/30'   },
-    { label: 'RiskAnalyst', color: 'text-blue-400',    border: 'border-blue-400/30'    },
-    { label: 'Auditor',     color: 'text-purple-400',  border: 'border-purple-400/30'  },
-    { label: 'Settlement',  color: 'text-arc-green',   border: 'border-arc-green/30'   },
+    { label: 'Escrow',      color: 'text-white/50',   border: 'border-white/10'    },
+    { label: 'Director',    color: 'text-white/50',   border: 'border-white/10'    },
+    { label: 'RiskAnalyst', color: 'text-white/50',   border: 'border-white/10'    },
+    { label: 'Auditor',     color: 'text-white/50',   border: 'border-white/10'    },
+    { label: 'Settlement',  color: 'text-arc-green',  border: 'border-arc-green/30' },
   ]
 
   const AGENT_STEP: Record<string, string> = {
@@ -994,7 +994,7 @@ function MarketplaceTab({ onHire }: { onHire: (agentName: string) => void }) {
                     <div className="flex items-center gap-2">
                       <div className="font-mono text-sm font-bold text-white">{agent.name}</div>
                       {GOVERNED_AGENTS.has(agent.name) && (
-                        <span className="font-mono text-[8px] px-1.5 py-0.5 rounded border border-purple-500/30 text-purple-400 bg-purple-500/5 flex-shrink-0">
+                        <span className="font-mono text-[8px] px-1.5 py-0.5 rounded border border-arc-green/30 text-arc-green bg-arc-green/5 flex-shrink-0">
                           ◈ GOVERNED
                         </span>
                       )}
@@ -1017,7 +1017,7 @@ function MarketplaceTab({ onHire }: { onHire: (agentName: string) => void }) {
                 <div className="flex flex-col gap-2 mt-auto pt-3 border-t border-arc-border">
                   <div className="flex items-center justify-between font-mono text-[10px]">
                     <span className="text-arc-muted">Governance reputation</span>
-                    <span className={`font-semibold ${agent.reputation >= 8 ? 'text-arc-green' : agent.reputation >= 5 ? 'text-arc-amber' : 'text-red-400'}`}>
+                    <span className={`font-semibold ${agent.reputation >= 8 ? 'text-arc-green' : agent.reputation >= 4 ? 'text-white/60' : 'text-red-400'}`}>
                       {agent.reputation.toFixed(1)} / 10
                     </span>
                   </div>
@@ -1141,7 +1141,7 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
         <div className="border border-purple-500/20 rounded-xl p-4 bg-purple-500/[0.03] flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-mono text-[9px] text-purple-400 tracking-widest uppercase">Governance Demos</div>
+              <div className="font-mono text-[9px] text-arc-green tracking-widest uppercase">Governance Demos</div>
               <p className="font-mono text-[10px] text-arc-muted mt-0.5">
                 One-click: Director → RiskAnalyst → Auditor → Settlement on Arc
               </p>
@@ -1183,7 +1183,7 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
             </button>
           </div>
           <div className="font-mono text-[9px] text-arc-muted">
-            Pipeline: <span className="text-arc-amber">Director</span> → <span className="text-blue-400">RiskAnalyst</span> → <span className="text-purple-400">Auditor</span> → <span className="text-arc-green">Settlement</span>
+            Pipeline: <span className="text-white/60">Director</span> → <span className="text-white/60">RiskAnalyst</span> → <span className="text-white/60">Auditor</span> → <span className="text-arc-green">Settlement</span>
           </div>
         </div>
       )}
@@ -1235,7 +1235,7 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
           }
         </button>
         {submitting && (
-          <p className="font-mono text-[10px] text-purple-400/70">
+          <p className="font-mono text-[10px] text-white/40">
             Director → RiskAnalyst (Swarms) → Auditor → Settlement on Arc
           </p>
         )}
@@ -1335,11 +1335,11 @@ interface GovernanceSummary {
 // ── Governance helpers ────────────────────────────────────────────────────────
 
 const STAGE_COLORS: Record<string, string> = {
-  delegated:          'text-arc-amber',
-  escrowed:           'text-blue-400',
+  delegated:          'text-white/60',
+  escrowed:           'text-white/60',
   executing:          'text-arc-sub',
-  auditing:           'text-purple-400',
-  audited:            'text-purple-400',
+  auditing:           'text-white/60',
+  audited:            'text-white/60',
   settling:           'text-arc-green',
   settled:            'text-arc-green',
   slashing:           'text-red-400',
@@ -1365,10 +1365,10 @@ const STAGE_ICONS: Record<string, string> = {
 // ── Workflow step definitions ─────────────────────────────────────────────────
 
 const WORKFLOW_STEPS = [
-  { key: 'escrowed',  label: 'Escrow',     agent: 'Settlement',  color: 'text-blue-400',   border: 'border-blue-400/40'   },
-  { key: 'delegated', label: 'Director',   agent: 'Director',    color: 'text-arc-amber',  border: 'border-arc-amber/40'  },
-  { key: 'executing', label: 'RiskAnalyst',agent: 'RiskAnalyst', color: 'text-blue-400',   border: 'border-blue-400/40'   },
-  { key: 'auditing',  label: 'Auditor',    agent: 'Auditor',     color: 'text-purple-400', border: 'border-purple-400/40' },
+  { key: 'escrowed',  label: 'Escrow',     agent: 'Settlement',  color: 'text-white/60',  border: 'border-white/20'  },
+  { key: 'delegated', label: 'Director',   agent: 'Director',    color: 'text-white/60',  border: 'border-white/20'  },
+  { key: 'executing', label: 'RiskAnalyst',agent: 'RiskAnalyst', color: 'text-white/60',  border: 'border-white/20'  },
+  { key: 'auditing',  label: 'Auditor',    agent: 'Auditor',     color: 'text-white/60',  border: 'border-white/20'  },
   { key: 'settled',   label: 'Settlement', agent: 'Settlement',  color: 'text-arc-green',  border: 'border-arc-green/40'  },
 ]
 
@@ -1406,7 +1406,7 @@ function WorkflowStepIndicator({ events, slashed }: { events: StreamEvent[]; sla
               </span>
               {isCurrent && !isDone && (
                 <span className={`w-1 h-1 rounded-full animate-pulse mt-0.5 ${
-                  step.key === 'auditing' ? 'bg-purple-400' : 'bg-arc-amber'
+                  'bg-white/50'
                 }`} />
               )}
             </div>
@@ -1449,7 +1449,7 @@ function AuditChecksDetail({ checks, verdict, checksCount, checksPassed, slaElap
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-purple-400 font-semibold text-[11px]">◈ Auditor</span>
+        <span className="text-white/60 font-semibold text-[11px]">◈ Auditor</span>
         <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${
           verdict === 'PASS'
             ? 'bg-arc-green/10 text-arc-green border-arc-green/30'
