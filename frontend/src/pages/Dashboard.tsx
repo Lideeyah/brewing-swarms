@@ -884,17 +884,26 @@ const AGENT_META: Record<string, { specialty: string; pricePerTask: number; desc
   },
 }
 
+const GOVERNED_AGENTS = new Set(['Director', 'RiskAnalyst', 'Auditor'])
+
 function MarketplaceTab({ onHire }: { onHire: (agentName: string) => void }) {
   const [agents,     setAgents] = useState<AgentCard[]>([])
   const [loading,    setLoad]   = useState(true)
   const [showModal,  setModal]  = useState(false)
 
-  useEffect(() => {
+  const fetchAgents = () => {
     fetch(`${API}/api/agents`)
       .then(r => r.json())
       .then((d: AgentCard[]) => setAgents(d))
       .catch(() => null)
       .finally(() => setLoad(false))
+  }
+
+  useEffect(() => {
+    fetchAgents()
+    // Refresh every 30s so reputation reflects live slash/settle outcomes
+    const id = setInterval(fetchAgents, 30_000)
+    return () => clearInterval(id)
   }, [])
 
   const handleRegistered = (agent: AgentCard) => setAgents(prev => [agent, ...prev])
@@ -941,9 +950,16 @@ function MarketplaceTab({ onHire }: { onHire: (agentName: string) => void }) {
               {/* Card header */}
               <div className="px-5 pt-5 pb-4 flex flex-col gap-3 flex-1">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="font-mono text-sm font-bold text-white">{agent.name}</div>
-                    <div className="font-mono text-[11px] text-arc-green mt-0.5">{meta.specialty}</div>
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <div className="font-mono text-sm font-bold text-white">{agent.name}</div>
+                      {GOVERNED_AGENTS.has(agent.name) && (
+                        <span className="font-mono text-[8px] px-1.5 py-0.5 rounded border border-purple-500/30 text-purple-400 bg-purple-500/5 flex-shrink-0">
+                          ◈ GOVERNED
+                        </span>
+                      )}
+                    </div>
+                    <div className="font-mono text-[11px] text-arc-green">{meta.specialty}</div>
                   </div>
                   <span className={`font-mono text-[9px] px-2 py-0.5 rounded border flex-shrink-0 ${
                     agent.active
@@ -1548,6 +1564,129 @@ function AuditChecksDetail({ checks, verdict, checksCount, checksPassed, slaElap
   )
 }
 
+// ── Governance trail for completed governed tasks ─────────────────────────────
+
+interface CompletedGovernanceLog {
+  task_id:          string
+  delegation_chain: string[]
+  was_slashed:      boolean
+  outcome:          string
+  duration_s:       number | null
+  events:           GovernanceLogEntry[]
+  event_count:      number
+  summary:          GovernanceSummary & { audit_checks: Record<string, boolean> | null }
+}
+
+function CompletedGovernancePanel({ taskId }: { taskId: string }) {
+  const [log,     setLog]  = useState<CompletedGovernanceLog | null>(null)
+  const [loading, setLoad] = useState(true)
+
+  useEffect(() => {
+    fetch(`${API}/api/tasks/${taskId}/governance`)
+      .then(r => r.json())
+      .then(d => { setLog(d); setLoad(false) })
+      .catch(() => setLoad(false))
+  }, [taskId])
+
+  if (loading) return (
+    <div className="border border-purple-500/20 rounded-xl p-3 font-mono text-[10px] text-arc-muted animate-pulse">
+      Loading governance trail…
+    </div>
+  )
+  if (!log || log.event_count === 0) return null
+
+  const EV_COLOR: Record<string, string> = {
+    escrowed:           '#60a5fa',
+    delegated:          '#f59e0b',
+    executing:          '#60a5fa',
+    auditing:           '#a855f7',
+    audited:            log.was_slashed ? '#ef4444' : '#10b981',
+    settled:            '#10b981',
+    slashed:            '#ef4444',
+    refunded:           '#ef4444',
+    reputation_updated: '#10b981',
+  }
+
+  const AGENT_BADGE: Record<string, string> = {
+    Director:   'border-arc-amber/40 text-arc-amber',
+    RiskAnalyst:'border-blue-400/40 text-blue-400',
+    Auditor:    'border-purple-400/40 text-purple-400',
+    Settlement: 'border-arc-green/40 text-arc-green',
+  }
+
+  return (
+    <div className={`border rounded-xl p-4 flex flex-col gap-3 font-mono text-xs ${
+      log.was_slashed ? 'border-red-500/30 bg-red-500/[0.03]' : 'border-purple-500/20 bg-purple-500/[0.02]'
+    }`}>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-widest text-purple-400">Governance Audit Trail</span>
+          {!log.was_slashed && (log.outcome === 'completed' || log.outcome === 'settled') && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded border border-arc-green/30 text-arc-green">SETTLED</span>
+          )}
+          {log.was_slashed && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded border border-red-500/40 text-red-400 font-bold">SLASHED</span>
+          )}
+        </div>
+        {log.duration_s != null && (
+          <span className="text-[9px] text-arc-muted">{log.duration_s.toFixed(1)}s end-to-end</span>
+        )}
+      </div>
+
+      {/* Delegation chain */}
+      {log.delegation_chain.length > 0 && (
+        <div className="flex items-center gap-1 flex-wrap">
+          {log.delegation_chain.map((agent, i) => (
+            <span key={`${agent}-${i}`} className="flex items-center gap-1">
+              <span className={`text-[10px] px-1.5 py-0.5 rounded border ${AGENT_BADGE[agent] ?? 'border-arc-border text-arc-sub'}`}>
+                {agent}
+              </span>
+              {i < log.delegation_chain.length - 1 && <span className="text-arc-muted/50">→</span>}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Event timeline */}
+      <div className="flex flex-col gap-1 border-t border-arc-border/30 pt-2">
+        {log.events.map((ev, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+              style={{ background: EV_COLOR[ev.event_type] ?? '#6b7280' }} />
+            <span className="text-[9px] w-24 flex-shrink-0 font-semibold uppercase tracking-wide"
+              style={{ color: EV_COLOR[ev.event_type] ?? '#9ca3af' }}>
+              {ev.event_type}
+            </span>
+            <span className="text-[10px] text-arc-sub flex-1 truncate">{ev.label}</span>
+            <span className="text-[9px] text-arc-muted flex-shrink-0">{ev.ts_human}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Audit verdict */}
+      {log.summary.audit_verdict && (
+        <div className={`rounded-lg px-3 py-2 border ${
+          log.summary.audit_verdict === 'PASS'
+            ? 'border-arc-green/20 bg-arc-green/5'
+            : 'border-red-500/20 bg-red-500/5'
+        }`}>
+          <div className="flex items-center justify-between flex-wrap gap-1">
+            <span className={`text-[10px] font-bold ${
+              log.summary.audit_verdict === 'PASS' ? 'text-arc-green' : 'text-red-400'
+            }`}>
+              {log.summary.audit_verdict === 'PASS' ? '✓ AUDIT PASSED — 7/7 checks' : '✗ AUDIT FAILED — SLASHED'}
+            </span>
+            {log.summary.sla_elapsed_s != null && (
+              <span className="text-[9px] text-arc-muted">{log.summary.sla_elapsed_s.toFixed(1)}s SLA elapsed</span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function GovernancePanel({ events, delegationChain, slashed }: {
   events:          StreamEvent[]
   delegationChain: string[]
@@ -1976,18 +2115,9 @@ function ActiveJobsTab({ liveTaskId = '', onStreamDone = () => {} }: { liveTaskI
                   </div>
                 )}
 
-                {task.status === 'refunded' && (
-                  <div className="border border-red-500/30 rounded-lg p-4 bg-red-500/[0.05] flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[9px] text-red-400 tracking-widest uppercase">✗ Governance Slash — Refunded</span>
-                    </div>
-                    <p className="font-mono text-[11px] text-red-300/70">
-                      Auditor rejected the execution output. {task.budget_usdc.toFixed(3)} USDC returned to employer. Agent reputation penalised.
-                    </p>
-                    <div className="font-mono text-[9px] text-arc-muted">
-                      Governance trail: Director → RiskAnalyst → Auditor (SLASH) → Settlement
-                    </div>
-                  </div>
+                {/* Governance audit trail for governed tasks */}
+                {isGoverned && (
+                  <CompletedGovernancePanel taskId={task.task_id} />
                 )}
               </div>
             )}
