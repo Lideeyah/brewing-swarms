@@ -359,7 +359,7 @@ async def _run_governed_pipeline(task, req, employer_addr: str):
                     stage="delegated")
 
         async def _governance_emit(event_type: str, kwargs: dict):
-            await _emit(tid, "governance", **kwargs)
+            await _emit(tid, event_type, **kwargs)
 
         director_output, analyst_output = await orch.run(
             task_description = req.description,
@@ -985,3 +985,91 @@ async def get_all_governance_logs():
         }
         for tid, log in all_logs().items()
     ]
+
+
+# ── Deterministic demo endpoints ───────────────────────────────────────────────
+# Pre-canned task descriptions for hackathon demo reliability.
+# /api/demo/governed  → runs swarms_demo mode (PASS path)
+# /api/demo/slash     → runs slash_demo mode (SLASH path, deterministic)
+
+_DEMO_TASK_GOVERNED = (
+    "Analyse risk profile for a $50,000 allocation into tokenised real-world assets "
+    "on Arc. The portfolio spans three sectors: trade finance receivables (40%), "
+    "commercial real estate debt (35%), and emerging market infrastructure bonds (25%). "
+    "Provide a structured risk score, sector-level recommendation, and capital efficiency assessment."
+)
+
+_DEMO_TASK_SLASH = (
+    "Evaluate execution risk for a high-frequency arbitrage strategy across Arc "
+    "liquidity pools. Target spread: 0.3%. Execution window: sub-400ms. "
+    "Assess counterparty exposure, slippage scenarios, and on-chain SLA compliance. "
+    "[DEMO: governance audit will enforce slash to demonstrate enforcement path]"
+)
+
+
+@app.post("/api/demo/governed")
+async def demo_governed():
+    """
+    Launch a pre-canned governed execution demo.
+    Director -> Risk Analyst (Swarms) -> Auditor (PASS) -> Settlement.
+    Returns task_id; stream via /api/tasks/{task_id}/stream.
+    """
+    employer_addr = client.account.address
+    task = task_store.create(
+        employer_address = employer_addr,
+        employer_name    = "Demo Employer",
+        description      = _DEMO_TASK_GOVERNED,
+        budget_usdc      = 0.10,
+        deadline_hours   = 1,
+    )
+    task.status = "in_progress"
+    task_store.update(task)
+
+    req = PostTaskRequest(
+        description      = _DEMO_TASK_GOVERNED,
+        budget_usdc      = 0.10,
+        deadline_hours   = 1,
+        employer_address = employer_addr,
+        governance_mode  = "swarms_demo",
+    )
+    asyncio.create_task(_run_governed_pipeline(task, req, employer_addr))
+    return {
+        "task_id":         task.task_id,
+        "governance_mode": "swarms_demo",
+        "stream_url":      f"/api/tasks/{task.task_id}/stream",
+        "description":     _DEMO_TASK_GOVERNED[:80] + "…",
+    }
+
+
+@app.post("/api/demo/slash")
+async def demo_slash():
+    """
+    Launch a deterministic slash demo.
+    Director -> Risk Analyst (Swarms) -> Auditor (SLASH, forced) -> refund.
+    Returns task_id; stream via /api/tasks/{task_id}/stream.
+    """
+    employer_addr = client.account.address
+    task = task_store.create(
+        employer_address = employer_addr,
+        employer_name    = "Demo Employer",
+        description      = _DEMO_TASK_SLASH,
+        budget_usdc      = 0.10,
+        deadline_hours   = 1,
+    )
+    task.status = "in_progress"
+    task_store.update(task)
+
+    req = PostTaskRequest(
+        description      = _DEMO_TASK_SLASH,
+        budget_usdc      = 0.10,
+        deadline_hours   = 1,
+        employer_address = employer_addr,
+        governance_mode  = "slash_demo",
+    )
+    asyncio.create_task(_run_governed_pipeline(task, req, employer_addr))
+    return {
+        "task_id":         task.task_id,
+        "governance_mode": "slash_demo",
+        "stream_url":      f"/api/tasks/{task.task_id}/stream",
+        "description":     _DEMO_TASK_SLASH[:80] + "…",
+    }

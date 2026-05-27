@@ -107,12 +107,14 @@ class BrewingSwarmOrchestrator:
         )
 
         # Sequential workflow: Director first, then Risk Analyst
+        # output_type="str" is required — default is "dict" which breaks extraction
         self.workflow = SequentialWorkflow(
             name        = "Brewing Governance Workflow",
             description = "Governed autonomous coordination: delegation, analysis, audit, settlement",
             agents      = [self.director, self.risk_analyst],
             max_loops   = 1,
             verbose     = False,
+            output_type = "str",
         )
 
     async def run(
@@ -147,10 +149,12 @@ class BrewingSwarmOrchestrator:
             lambda: self.workflow.run(task_description),
         )
 
-        # workflow_result is the final agent's output (Risk Analyst)
-        # The Director's intermediate output is captured in workflow state
-        director_output  = _extract_agent_output(self.director)
-        analyst_output   = workflow_result if isinstance(workflow_result, str) else str(workflow_result)
+        # Primary: extract last assistant turn from each agent's short_memory.
+        # Fallback: use workflow_result (str with output_type="str", dict otherwise).
+        director_output = _extract_agent_output(self.director)
+        analyst_output  = _extract_agent_output(self.risk_analyst)
+        if not analyst_output:
+            analyst_output = workflow_result if isinstance(workflow_result, str) else str(workflow_result)
 
         await _emit("governance", agent="RiskAnalyst",
                     message="Structured analysis complete",
@@ -159,23 +163,58 @@ class BrewingSwarmOrchestrator:
         return director_output, analyst_output
 
     def reset(self):
-        """Reset agent memory between runs."""
-        try:
-            self.director.memory.clear()
-            self.risk_analyst.memory.clear()
-        except Exception:
-            pass
+        """Reset agent memory between runs — clear short_memory conversation history."""
+        for agent in (self.director, self.risk_analyst):
+            try:
+                if hasattr(agent, "short_memory") and agent.short_memory is not None:
+                    if hasattr(agent.short_memory, "clear"):
+                        agent.short_memory.clear()
+                    elif hasattr(agent.short_memory, "messages"):
+                        agent.short_memory.messages.clear()
+            except Exception:
+                pass
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _extract_agent_output(agent: Agent) -> str:
-    """Extract the last output from a Swarms Agent."""
+    """
+    Extract the last assistant turn from a Swarms Agent's short_memory.
+
+    Preference order:
+      1. short_memory.get_final_message_content()  — just the last message body
+      2. short_memory.get_last_message_as_string()  — last message with role prefix
+      3. last 2000 chars of return_history_as_string() — full conversation fallback
+    """
     try:
-        if hasattr(agent, 'short_memory') and agent.short_memory:
-            history = agent.short_memory.return_history_as_string()
-            if history:
-                return history[-2000:]  # last 2000 chars
+        mem = getattr(agent, "short_memory", None)
+        if mem is None:
+            return ""
+
+        # Option 1: cleanest — content of the final message only
+        if hasattr(mem, "get_final_message_content"):
+            out = mem.get_final_message_content()
+            if out and isinstance(out, str) and out.strip():
+                return out.strip()
+
+        # Option 2: last message with role tag stripped out
+        if hasattr(mem, "get_last_message_as_string"):
+            out = mem.get_last_message_as_string()
+            if out and isinstance(out, str) and out.strip():
+                # Strip a leading "Assistant: " prefix if present
+                out = out.strip()
+                for prefix in ("Assistant:", "assistant:", "ASSISTANT:"):
+                    if out.startswith(prefix):
+                        out = out[len(prefix):].strip()
+                        break
+                return out
+
+        # Option 3: full history tail
+        if hasattr(mem, "return_history_as_string"):
+            history = mem.return_history_as_string()
+            if history and isinstance(history, str):
+                return history[-2000:]
+
     except Exception:
         pass
     return ""
