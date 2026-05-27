@@ -9,6 +9,7 @@ Run locally:
 import asyncio
 import os
 import time
+from collections import deque
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from pathlib import Path
@@ -32,13 +33,16 @@ from backend.governance     import get_log
 from backend.auditor        import AuditorAgent
 
 # ── Streaming event bus ───────────────────────────────────────────────────────
-# Maps task_id → list of subscriber queues (one per SSE connection)
-_task_streams: dict[str, list[asyncio.Queue]] = {}
+# Maps task_id → {"queues": list[asyncio.Queue], "buffer": deque[dict]}
+# Buffer stores ALL emitted events so late SSE connections can replay them.
+_task_streams: dict[str, dict] = {}
 
 async def _emit(task_id: str, event_type: str, **kwargs):
     """Broadcast a progress event to all SSE subscribers for a task."""
     payload = {"type": event_type, **kwargs}
-    for q in _task_streams.get(task_id, []):
+    entry = _task_streams.setdefault(task_id, {"queues": [], "buffer": deque(maxlen=500)})
+    entry["buffer"].append(payload)
+    for q in entry["queues"]:
         await q.put(payload)
 
 # ── App lifecycle ─────────────────────────────────────────────────────────────
@@ -235,12 +239,28 @@ async def _call_webhook(
 
 @app.get("/api/tasks/{task_id}/stream")
 async def stream_task_events(task_id: str):
-    """SSE endpoint — streams live agent progress for a running task."""
+    """SSE endpoint — streams live agent progress for a running task.
+
+    Late connections receive a replay of all buffered events emitted so far,
+    then stream new events as they arrive. This eliminates the race condition
+    where the frontend SSE connection establishes after the pipeline has already
+    emitted its first few events.
+    """
     q: asyncio.Queue = asyncio.Queue()
-    _task_streams.setdefault(task_id, []).append(q)
+    entry = _task_streams.setdefault(task_id, {"queues": [], "buffer": deque(maxlen=500)})
 
     async def generate():
+        # IMPORTANT: snapshot the buffer THEN register — both sync, no await between them.
+        # asyncio is single-threaded: no _emit() can fire between these two lines.
+        snapshot = list(entry["buffer"])
+        entry["queues"].append(q)
         try:
+            # Replay any events that fired before this connection arrived
+            for ev in snapshot:
+                yield f"data: {_json_module.dumps(ev)}\n\n"
+                if ev.get("type") in ("done", "error"):
+                    return   # pipeline already finished; nothing left to stream
+            # Stream new events as they arrive
             while True:
                 try:
                     ev = await asyncio.wait_for(q.get(), timeout=120)
@@ -251,7 +271,7 @@ async def stream_task_events(task_id: str):
                     yield 'data: {"type":"ping"}\n\n'
         finally:
             try:
-                _task_streams.get(task_id, []).remove(q)
+                entry["queues"].remove(q)
             except ValueError:
                 pass
 

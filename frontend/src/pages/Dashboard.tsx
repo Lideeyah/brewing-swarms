@@ -146,8 +146,8 @@ function MarkdownResult({ content }: { content: string }) {
         ol: ({ children }) => <ol className="font-mono text-[11px] space-y-0.5 mb-2 pl-4 list-decimal text-white">{children}</ol>,
         li: ({ children }) => <li className="font-mono text-[11px] text-arc-sub flex gap-2"><span className="text-arc-muted flex-shrink-0">–</span><span>{children}</span></li>,
         strong: ({ children }) => <strong className="text-arc-green font-semibold">{children}</strong>,
-        em: ({ children }) => <em className="text-arc-amber not-italic">{children}</em>,
-        code: ({ children }) => <code className="bg-black/40 text-arc-amber font-mono text-[10px] px-1.5 py-0.5 rounded border border-arc-border">{children}</code>,
+        em: ({ children }) => <em className="text-white/80 not-italic">{children}</em>,
+        code: ({ children }) => <code className="bg-black/40 text-arc-green font-mono text-[10px] px-1.5 py-0.5 rounded border border-arc-border">{children}</code>,
         pre: ({ children }) => <pre className="bg-black/40 border border-arc-border rounded-lg p-3 my-2 overflow-x-auto font-mono text-[10px] text-arc-sub">{children}</pre>,
         blockquote: ({ children }) => <blockquote className="border-l-2 border-arc-green/40 pl-3 my-2 text-arc-sub italic">{children}</blockquote>,
         hr: () => <hr className="border-arc-border my-3" />,
@@ -561,7 +561,7 @@ function ResultActions({ content, taskId }: { content: string; taskId: string })
           title={driveStatus === 'reconnect' ? 'Reconnect Google Drive on the Post Task tab to enable saving' : ''}
           className={`flex items-center gap-1.5 font-mono text-[10px] border rounded-lg px-3 py-1.5 transition-colors ${
             driveStatus === 'saved'     ? 'text-arc-green border-arc-green/30 bg-arc-green/5' :
-            driveStatus === 'reconnect' ? 'text-arc-amber border-arc-amber/30' :
+            driveStatus === 'reconnect' ? 'text-white/50 border-white/20' :
             driveStatus === 'saving'    ? 'text-arc-muted border-arc-border cursor-wait' :
             'text-arc-sub border-arc-border hover:border-arc-green hover:text-arc-green'
           }`}
@@ -1662,9 +1662,9 @@ function GovernancePanel({ events, delegationChain, slashed }: {
           <div className="flex items-center gap-1 flex-wrap">
             {delegationChain.map((agent, i) => {
               const AGENT_BADGE: Record<string, string> = {
-                Director:   'border-arc-amber/40 text-arc-amber',
-                RiskAnalyst:'border-blue-400/40 text-blue-400',
-                Auditor:    'border-purple-400/40 text-purple-400',
+                Director:   'border-white/20 text-white/60',
+                RiskAnalyst:'border-white/20 text-white/60',
+                Auditor:    'border-white/20 text-white/60',
                 Settlement: 'border-arc-green/40 text-arc-green',
               }
               return (
@@ -1904,8 +1904,10 @@ function ActiveJobsTab({ liveTaskId = '', onStreamDone = () => {}, onGoPost = ()
       const data: TaskRecord[] = await fetch(`${API}/api/tasks`).then(r => r.json())
       const mine = myAddress || myName ? data.filter(matchesMe) : data
       setTasks(mine)
-      if (firstLoad && mine.length > 0) {
-        setOpenIds(new Set([mine[0].task_id]))
+      if (firstLoad) {
+        // Only auto-expand tasks that are actively running — completed jobs start collapsed
+        const inProgress = mine.filter(t => t.status === 'in_progress')
+        if (inProgress.length > 0) setOpenIds(new Set([inProgress[0].task_id]))
         setFirstLoad(false)
       }
     } catch { /* offline */ } finally { setLoad(false) }
@@ -2006,7 +2008,7 @@ function ActiveJobsTab({ liveTaskId = '', onStreamDone = () => {}, onGoPost = ()
                     {new Date(task.completed_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 )}
-                <span className="font-mono text-[11px] text-arc-amber font-bold">{task.budget_usdc.toFixed(3)} USDC</span>
+                <span className="font-mono text-[11px] text-white/70 font-bold">{task.budget_usdc.toFixed(3)} USDC</span>
                 <StatusBadge status={task.status} />
               </div>
             </button>
@@ -2027,7 +2029,7 @@ function ActiveJobsTab({ liveTaskId = '', onStreamDone = () => {}, onGoPost = ()
                           <div className="flex items-center gap-2">
                             <span className={`font-mono text-[10px] ${
                               st.status === 'completed' ? 'text-arc-green' :
-                              st.status === 'working'   ? 'text-arc-amber' : 'text-arc-muted'
+                              st.status === 'working'   ? 'text-white/60' : 'text-arc-muted'
                             }`}>
                               {st.status === 'completed' ? '✓' : st.status === 'working' ? '⟳' : '○'}
                             </span>
@@ -2179,7 +2181,7 @@ function ReceiptsTab() {
                     {new Date(task.completed_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 )}
-                <span className="font-mono text-[11px] text-arc-amber font-bold">{task.budget_usdc.toFixed(3)} USDC</span>
+                <span className="font-mono text-[11px] text-white/70 font-bold">{task.budget_usdc.toFixed(3)} USDC</span>
               </div>
             </button>
 
@@ -2339,7 +2341,7 @@ function AccountTab({ onSignOut }: { onSignOut: () => void }) {
             </div>
             <div className="flex flex-col gap-1">
               <div className="font-mono text-[9px] text-arc-muted uppercase tracking-widest">Total Spent</div>
-              <div className="font-mono text-2xl font-bold text-arc-amber">{profile.total_spent.toFixed(3)} USDC</div>
+              <div className="font-mono text-2xl font-bold text-white">{profile.total_spent.toFixed(3)} USDC</div>
             </div>
             <div className="flex flex-col gap-1">
               <div className="font-mono text-[9px] text-arc-muted uppercase tracking-widest">Success Rate</div>
