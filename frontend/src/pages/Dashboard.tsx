@@ -1029,7 +1029,7 @@ function MarketplaceTab({ onHire }: { onHire: (agentName: string) => void }) {
                     </div>
                     <div>
                       <div className="font-mono text-[9px] text-arc-muted uppercase tracking-wide">Price / task</div>
-                      <div className="font-mono text-sm font-bold text-arc-amber mt-0.5">{meta.pricePerTask.toFixed(3)} USDC</div>
+                      <div className="font-mono text-sm font-bold text-white mt-0.5">{meta.pricePerTask.toFixed(3)} USDC</div>
                     </div>
                   </div>
                 </div>
@@ -1138,7 +1138,7 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
 
       {/* Quick Demo Launchers */}
       {!preselectedAgent && (
-        <div className="border border-purple-500/20 rounded-xl p-4 bg-purple-500/[0.03] flex flex-col gap-3">
+        <div className="border border-arc-border rounded-xl p-4 bg-arc-surface/50 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div>
               <div className="font-mono text-[9px] text-arc-green tracking-widest uppercase">Governance Demos</div>
@@ -1212,7 +1212,7 @@ function PostTaskTab({ preselectedAgent, onTaskPosted }: { preselectedAgent?: st
         <div className="border border-arc-border/50 rounded-lg px-4 py-3 bg-arc-surface/50 flex items-center justify-between">
           <div className="flex flex-col gap-0.5">
             <span className="font-mono text-[10px] text-arc-muted">Escrow locked on submit</span>
-            <span className="font-mono text-lg font-bold text-arc-amber">{lockedUsdc} USDC</span>
+            <span className="font-mono text-lg font-bold text-white">{lockedUsdc} USDC</span>
           </div>
           <div className="font-mono text-[10px] text-arc-muted text-right leading-relaxed">
             <div className="text-arc-green">Released only on clean audit</div>
@@ -1515,7 +1515,7 @@ function CompletedGovernancePanel({ taskId }: { taskId: string }) {
   }, [taskId])
 
   if (loading) return (
-    <div className="border border-purple-500/20 rounded-xl p-3 font-mono text-[10px] text-arc-muted animate-pulse">
+    <div className="border border-arc-border rounded-xl p-3 font-mono text-[10px] text-arc-muted animate-pulse">
       Loading governance trail…
     </div>
   )
@@ -1534,20 +1534,20 @@ function CompletedGovernancePanel({ taskId }: { taskId: string }) {
   }
 
   const AGENT_BADGE: Record<string, string> = {
-    Director:   'border-arc-amber/40 text-arc-amber',
-    RiskAnalyst:'border-blue-400/40 text-blue-400',
-    Auditor:    'border-purple-400/40 text-purple-400',
+    Director:   'border-white/20 text-white/60',
+    RiskAnalyst:'border-white/20 text-white/60',
+    Auditor:    'border-white/20 text-white/60',
     Settlement: 'border-arc-green/40 text-arc-green',
   }
 
   return (
     <div className={`border rounded-xl p-4 flex flex-col gap-3 font-mono text-xs ${
-      log.was_slashed ? 'border-red-500/30 bg-red-500/[0.03]' : 'border-purple-500/20 bg-purple-500/[0.02]'
+      log.was_slashed ? 'border-red-500/30 bg-red-500/[0.03]' : 'border-arc-border bg-arc-surface/30'
     }`}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-widest text-purple-400">Governance Audit Trail</span>
+          <span className="text-[10px] uppercase tracking-widest text-arc-green">Governance Audit Trail</span>
           {!log.was_slashed && (log.outcome === 'completed' || log.outcome === 'settled') && (
             <span className="text-[9px] px-1.5 py-0.5 rounded border border-arc-green/30 text-arc-green">SETTLED</span>
           )}
@@ -1628,13 +1628,13 @@ function GovernancePanel({ events, delegationChain, slashed }: {
 
   return (
     <div className={`border rounded-xl p-4 flex flex-col gap-3 font-mono text-xs ${
-      slashed ? 'border-red-500/30 bg-red-500/[0.04]' : 'border-purple-500/20 bg-purple-500/[0.03]'
+      slashed ? 'border-red-500/30 bg-red-500/[0.04]' : 'border-arc-border bg-arc-surface/30'
     }`}>
 
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-widest text-purple-400">Governance Audit Trail</span>
+          <span className="text-[10px] uppercase tracking-widest text-arc-green">Governance Audit Trail</span>
           {isDone && !slashed && (
             <span className="text-[9px] px-1.5 py-0.5 rounded border border-arc-green/30 text-arc-green">SETTLED</span>
           )}
@@ -1642,7 +1642,7 @@ function GovernancePanel({ events, delegationChain, slashed }: {
             <span className="text-[9px] px-1.5 py-0.5 rounded border border-red-500/40 text-red-400 font-bold">SLASHED</span>
           )}
           {!isDone && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded border border-arc-amber/30 text-arc-amber animate-pulse">LIVE</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded border border-arc-green/30 text-arc-green animate-pulse">LIVE</span>
           )}
         </div>
         {doneEvent?.summary?.duration_s != null && (
@@ -1799,8 +1799,8 @@ function LiveStreamPanel({ taskId, onDone }: { taskId: string; onDone: () => voi
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [events, current])
 
   const AGENT_COLOR: Record<string, string> = {
-    Director: 'text-arc-amber', RiskAnalyst: 'text-blue-400',
-    Auditor: 'text-purple-400', Settlement: 'text-arc-green',
+    Director: 'text-white/60', RiskAnalyst: 'text-white/60',
+    Auditor: 'text-white/60', Settlement: 'text-arc-green',
   }
 
   // Execution feed: all non-governance, non-internal events
@@ -1827,7 +1827,7 @@ function LiveStreamPanel({ taskId, onDone }: { taskId: string; onDone: () => voi
           <div key={i} className="flex items-start gap-2">
             {ev.type === 'routed' ? (
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-arc-amber font-semibold">→ Router</span>
+                <span className="text-white/60 font-semibold">→ Router</span>
                 <span className="text-arc-sub">
                   {ev.pipeline ? 'Full pipeline selected' : `Routed to ${ev.agent}`}
                   {ev.reason ? `: ${ev.reason}` : ''}
@@ -1982,7 +1982,7 @@ function ActiveJobsTab({ liveTaskId = '', onStreamDone = () => {}, onGoPost = ()
                     <span className={`font-mono text-[9px] px-1.5 py-0.5 rounded border flex-shrink-0 ${
                       isSlashedTask
                         ? 'border-red-500/30 text-red-400/80'
-                        : 'border-purple-500/30 text-purple-400/80'
+                        : 'border-arc-green/30 text-arc-green/80'
                     }`}>
                       {isSlashedTask ? '✗ SLASHED' : '◈ GOVERNED'}
                     </span>
